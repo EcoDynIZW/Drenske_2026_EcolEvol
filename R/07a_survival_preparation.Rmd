@@ -1,0 +1,366 @@
+---
+title: "Your Project: Data Preparation" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+#library("devtools")
+
+library("skimr")
+library("tidyverse")
+```
+
+
+# Data
+
+```{r data}
+# Squirrel data
+squirrels <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_20251127.RDS"))
+
+# Human activity
+huac_means_specific <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "human_activity_means_20251127.RDS"))
+
+# Genetic indices
+genetic_indices_ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "individual_genetics", 
+                                                "squirrel_genetic_indices_20251127.RDS"))
+# Trapping effort
+trapping_effort <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_20251122.RDS"))
+```
+
+```{r}
+table(squirrels$age_class, squirrels$Squirrel_ID)
+
+# more than 1 age class: 8041A2E, 80428EA, 8042AB3, 8047A08, 8049A4F, 804BCFF, 8061F66, 808F334, 817F48A
+```
+
+# Data preparation
+```{r}
+## remove entries were there is no Sex and no Squirrel_ID
+squirrels <- squirrels %>%
+  dplyr::filter(!is.na(Sex)) %>% 
+  dplyr::filter(!is.na(Squirrel_ID)) %>%
+  #dplyr::filter(age_class == "adult") %>%
+  droplevels()
+
+# calculate the number of total recaptures per ID
+squirrels <- squirrels %>%
+  group_by(Squirrel_ID) %>%
+  mutate(n_recap = n()) %>%
+  ungroup()
+table(squirrels$n_recap, useNA = "always")
+squirrels$detect <- 1
+
+# Only adults
+## remove entries were there is no Sex and no Squirrel_ID
+squirrels_adu <- squirrels %>%
+  dplyr::filter(!is.na(Sex)) %>% 
+  dplyr::filter(!is.na(Squirrel_ID)) %>%
+  dplyr::filter(age_class == "adult") %>%
+  droplevels()
+
+# calculate the number of total recaptures per ID
+squirrels_adu <- squirrels_adu %>%
+  group_by(Squirrel_ID) %>%
+  mutate(n_recap = n()) %>%
+  ungroup()
+table(squirrels_adu$n_recap, useNA = "always")
+squirrels_adu$detect <- 1
+```
+
+```{r}
+table(squirrels_once$age_class)
+```
+
+
+```{r}
+squirrels_once <- squirrels %>%
+  group_by(Squirrel_ID) %>%
+  #mutate(n_recaps_season = )
+  filter(row_number()== 1) %>%
+  droplevels() %>%
+  ungroup()
+table(squirrels_once$Squirrel_ID, useNA = "always")
+
+squirrels_once_adu <- squirrels_adu %>%
+  group_by(Squirrel_ID) %>%
+  #mutate(n_recaps_season = )
+  filter(row_number()== 1) %>%
+  droplevels() %>%
+  ungroup()
+table(squirrels_once_adu$Squirrel_ID, useNA = "always")
+```
+add genetic indices
+```{r}
+squirrels_gen <- squirrels_once %>%
+  left_join(y = genetic_indices_ID[, c(2,4,13)], by = "Squirrel_ID")
+# without values: 80426FF, 808F586, 805F9EA, 815E575, 805BECE, 7F25184
+# IDs with geentic samples but not included in survival because no sex was determined: 806214A (Noah), 8042D7C (Jona)
+
+squirrels_gen_adu <- squirrels_once_adu %>%
+  left_join(y = genetic_indices_ID[, c(2,4,13)], by = "Squirrel_ID")
+```
+
+Add mean values per study site for individuals without genetic indices
+
+
+```{r}
+squirrels_gen_fill <- squirrels_gen %>%
+  group_by(Study_site) %>%
+  mutate(
+    MLH_sq = case_when(
+      is.na(MLH_sq) ~ mean(MLH_sq, na.rm = TRUE),
+      TRUE        ~ MLH_sq
+    ),
+    F = case_when(
+      is.na(F)    ~ mean(F, na.rm = TRUE),
+      TRUE        ~ F
+    )
+  ) %>%
+  ungroup()
+
+summary(squirrels_gen_fill$MLH_sq)
+summary(squirrels_gen_fill$F)
+
+# Prüfe ob noch NAs existieren:
+colSums(is.na(squirrels_gen_fill[, c("MLH_sq", "F")]))
+
+########################
+# Only adults
+squirrels_gen_fill_adu <- squirrels_gen_adu %>%
+  group_by(Study_site) %>%
+  mutate(
+    MLH_sq = case_when(
+      is.na(MLH_sq) ~ mean(MLH_sq, na.rm = TRUE),
+      TRUE        ~ MLH_sq
+    ),
+    F = case_when(
+      is.na(F)    ~ mean(F, na.rm = TRUE),
+      TRUE        ~ F
+    )
+  ) %>%
+  ungroup()
+
+summary(squirrels_gen_fill_adu$MLH_sq)
+summary(squirrels_gen_fill_adu$F)
+
+# Prüfe ob noch NAs existieren:
+colSums(is.na(squirrels_gen_fill_adu[, c("MLH_sq", "F")]))
+```
+
+add data about the human activity
+```{r}
+squirrels_complete <- squirrels_gen_fill %>%
+  left_join(y = huac_means_specific[, c(2,6:9)], by = "study_site_specific")
+
+squirrels_complete_adu <- squirrels_gen_fill_adu %>%
+  left_join(y = huac_means_specific[, c(2,6:9)], by = "study_site_specific")
+```
+
+# Create capture histories
+adapted from https://jamesepaterson.github.io/jamespatersonblog/07_creatingcapturehistories 
+```{r}
+#length(unique(squirrels$Squirrel_ID)) # 115 - table should have 115 rows
+
+capt_hist <- squirrels %>%
+  select(Squirrel_ID, Project_phase, detect) %>%
+  # remove duplicates, which may occur when individuals are caught multiple times in an event
+  # For example, your event may be a year and an individual may be caught multiple times in a year.
+  distinct(Project_phase, Squirrel_ID, .keep_all = TRUE) %>%
+  # spread out data. The fill = 0 adds rows for combinations of id and event where individuals were not observerd
+  pivot_wider(names_from = Project_phase, values_from = detect, values_fill = 0) %>%
+  #spread(event, detect, fill = 0) %>% 
+  # For every individual....
+  group_by(Squirrel_ID) %>%
+  # Paste together 0's and 1's
+  # Unite is similar to paste. Here we are pasting the strings together from the second column (first capture event)
+  # to the last capture event ("tail(names(.),1)").
+  # we don't want any characters separating 0's and 1's, so we use: sep = ""
+  unite("ch", 2:tail(names(.),1), sep = "")
+
+##################
+# Only adults
+capt_hist_adu <- squirrels_adu %>%
+  select(Squirrel_ID, Project_phase, detect) %>%
+  # remove duplicates, which may occur when individuals are caught multiple times in an event
+  # For example, your event may be a year and an individual may be caught multiple times in a year.
+  distinct(Project_phase, Squirrel_ID, .keep_all = TRUE) %>%
+  # spread out data. The fill = 0 adds rows for combinations of id and event where individuals were not observerd
+  pivot_wider(names_from = Project_phase, values_from = detect, values_fill = 0) %>%
+  #spread(event, detect, fill = 0) %>% 
+  # For every individual....
+  group_by(Squirrel_ID) %>%
+  # Paste together 0's and 1's
+  # Unite is similar to paste. Here we are pasting the strings together from the second column (first capture event)
+  # to the last capture event ("tail(names(.),1)").
+  # we don't want any characters separating 0's and 1's, so we use: sep = ""
+  unite("ch", 2:tail(names(.),1), sep = "")
+```
+
+```{r}
+table(capt_hist$ch)
+```
+# Add individual information
+```{r}
+capt_hist <- capt_hist %>%
+  left_join(squirrels_complete, by = "Squirrel_ID") %>%
+  select(Squirrel_ID, Name, ch, Sex, n_recap, # Squirrel specific
+         area_type, Study_site, study_site_specific,  # Study site
+         F, MLH_sq, # genetics
+         spec_mean_30, spec_mean_60, mean_30, mean_60) # human activity
+
+####
+# Only adults
+capt_hist_adu <- capt_hist_adu %>%
+  left_join(squirrels_complete_adu, by = "Squirrel_ID") %>%
+  select(Squirrel_ID, Name, ch, Sex, n_recap, # Squirrel specific
+         area_type, Study_site, study_site_specific,  # Study site
+         F, MLH_sq, # genetics
+         spec_mean_30, spec_mean_60, mean_30, mean_60) # human activity
+```
+
+Change study_site_specific, sex and area type to numeric
+```{r}
+capt_hist <- capt_hist %>%
+  mutate(sex_num = case_when(Sex == "f" ~ 1,
+                             Sex == "m" ~ 0),
+         area_num = case_when(area_type == "urban" ~ 1,
+                             area_type == "rural" ~ 0), 
+         site_spec = case_when(study_site_specific == "Rahnsdorf" ~ 1,
+                                         study_site_specific == "Lilienthal" ~ 2,
+                                         study_site_specific == "Treptow_south" ~ 3,
+                                         study_site_specific == "Treptow_north" ~ 4))
+```
+
+Rename columns because the names are too long for RMark
+```{r}
+capt_hist <- capt_hist %>%
+  rename(spec_30 = spec_mean_30,
+         spec_60 = spec_mean_60)
+
+# Only adults
+capt_hist_adu <- capt_hist_adu %>%
+  rename(spec_30 = spec_mean_30,
+         spec_60 = spec_mean_60)
+```
+
+Remove columns
+```{r}
+capt_hist <- 
+  capt_hist %>%
+  #select(!c(Sex, Name, n_recap, area_type, study_site_specific)) %>%
+  mutate(across(where(is.numeric), round, 5))
+
+capt_hist_adu <- 
+  capt_hist_adu %>%
+  #select(!c(Sex, Name, n_recap, area_type, study_site_specific)) %>%
+  mutate(across(where(is.numeric), round, 5))
+```
+
+# Prepare time-varying covariates
+## NOT USED: Nr recaptures per ID per project phase
+138 IDs * 8 project phases = 1104 rows
+```{r}
+# N_recaps_phase <- squirrels %>%
+#   group_by(Squirrel_ID, Project_phase) %>%
+#   count() %>%
+#   ungroup() %>%
+#   complete(Squirrel_ID, Project_phase, fill = list(n = 0))
+```
+
+## Season
+```{r}
+season_phase <- squirrels %>%
+  group_by(Project_phase, Season) %>%
+  summarise(n = n()) %>%
+  mutate(n = NULL)
+```
+
+
+## Effort per phase per study site
+```{r}
+effort_site_phase <- trapping_effort %>%
+  group_by(Project_phase, Study_site) %>%
+  summarise(trap_hours = sum(hours_day)) %>%
+  ungroup() %>%
+  complete(Study_site, Project_phase, fill = list(trap_hours = 0))
+```
+
+
+
+# Save data
+```{r}
+# # Complete squirrel data
+# saveRDS(object = squirrels_complete, file = here::here("output", "data-proc", "cmr-proc", "squirrels_complete_20251128.RDS"))
+# 
+# # Capture histories
+# saveRDS(object = capt_hist, file = here::here("output", "data-proc", "cmr-proc", "capture_histories_20251128.RDS"))
+# 
+# ## Only adults
+# saveRDS(object = capt_hist_adu, file = here::here("output", "data-proc", "cmr-proc", "capture_histories_adults_20251212.RDS"))
+# # Nr recaptures
+# # saveRDS(object = N_recaps_phase, file = here::here("output", "data-proc", "cmr-proc", "N_recaps_phase_20251128.RDS"))
+# 
+# # Season
+# saveRDS(object = season_phase, file = here::here("output", "data-proc", "cmr-proc", "season_phase_20251128.RDS"))
+# 
+# # Effort
+# saveRDS(object = effort_site_phase, file = here::here("output", "data-proc", "cmr-proc", "effort_site_phase_20251128.RDS"))
+```
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

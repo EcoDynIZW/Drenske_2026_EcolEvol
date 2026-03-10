@@ -1,0 +1,547 @@
+---
+title: "Squirrel CMR: Squirrel Data Preparation" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+d6::simple_load(c("tidyverse", 
+                  #"gridExtra", 
+                  "here", 
+                  "lubridate"))
+```
+
+
+# Data
+
+```{r data}
+# Individual data of captured squirrels
+squirrels_raw <- vroom::vroom(file = here::here("data-raw/cmr-raw/squirrels_raw_data_20251126.csv"), 
+                             delim = ";", 
+                             locale = locale(encoding = "ISO-8859-1", 
+                                             decimal_mark = ".")
+)
+
+# Trapping effort data
+trapping_effort_trep <- vroom::vroom(file = here::here("data-raw/cmr-raw/Trapping_Effort_20250713_SD_Treptower_Park.csv"),
+                                delim = ";")
+trapping_effort_lilie <- vroom::vroom(file = here::here("data-raw/cmr-raw/Trapping_Effort_20250713_SD_Lilienthal.csv"),
+                                delim = ";")
+trapping_effort_rahn <- vroom::vroom(file = here::here("data-raw/cmr-raw/Trapping_Effort_20250713_SD_Rahnsdorf.csv"),
+                                delim = ";")
+
+# Human activity
+hum_act <- vroom::vroom(file = here::here("data-raw/cmr-raw/human_activity_all_20251126.csv"),
+                                delim = ";")
+```
+
+# CMR Data
+## Data manipulation
+Looking for strange values, typos etc. 
+```{r}
+table(squirrels_raw$Project_phase, useNA = "always") # FINE
+table(squirrels_raw$Season, useNA = "always") # FINE
+table(squirrels_raw$Study_site, useNA = "always") # FINE
+table(squirrels_raw$Trap_nr, useNA = "always") # FINE
+table(squirrels_raw$Squirrel_ID, useNA = "always") # Seems fine at a first glance, 9 times no ID - Fine
+table(squirrels_raw$Capture_or_recapture, useNA = "always") # 6 times not indicated if capture or recapture - is from 6 of the individuals without ID (other individuals without ID were captures for sure) - FINE
+table(squirrels_raw$Sex, useNA = "always") # 9 times no sex - 6x individuals without ID, 3 x captures where we did not determine the sex - FINE
+table(squirrels_raw$age_class, useNA = "always") # 4 times NA - individuals without ID, for the others with ID we could determine the age class - FINE
+table(squirrels_raw$docility_score, useNA = "always") # FINE
+```
+
+
+
+### New column "study_site_specific"
+
+Here I divide the study site Treptower Park into two parts: Treptower Park north
+and Treptower Park south. We want to test this differentiation, as possible differences between the areas of the park were identified in a master's thesis
+
+Trap locations in...
+Trep_north: B_Trep_11, B_Trep_16, B_Trep_05, B_Trep_02_mobil, B_Trep_07_mobil, 
+            B_Trep_09, B_Trep_07, B_Trep_19, B_Trep_04, B_Trep_18
+            
+Trep_south: B_Trep_13, B_Trep_03, B_Trep_14, B_Trep_01, B_Trep_02, B_Trep_06, 
+            B_Trep_15, B_Trep_17, B_Trep_08
+  
+
+```{r}
+## adding new column to table
+## first defining the list of the specific study sites 
+
+treptower_park_south <- c("B_Trep_13", "B_Trep_03", "B_Trep_14", "B_Trep_01",
+                          "B_Trep_02", "B_Trep_06", "B_Trep_15", "B_Trep_17", 
+                          "B_Trep_08")
+
+treptower_park_north <- c("B_Trep_11", "B_Trep_16", "B_Trep_05", "B_Trep_02_mobil", "B_Trep_07_mobil", "B_Trep_09", "B_Trep_07", "B_Trep_19", "B_Trep_04", "B_Trep_18","B_Trep_10")
+
+
+## using case_when to create the 'study_site_specific' column
+squirrels_raw <- squirrels_raw %>%
+  dplyr::mutate(study_site_specific = dplyr::case_when(
+    Trap_nr %in% treptower_park_south ~ "Treptow_south",
+    Trap_nr %in% treptower_park_north ~ "Treptow_north",
+    Study_site == "Lilienthal" ~ "Lilienthal",
+    Study_site == "Rahnsdorf" ~ "Rahnsdorf",
+    TRUE ~ NA_character_  # For all other cases, set to NA
+  ))
+```
+
+Check values
+```{r}
+table(squirrels_raw$Study_site, useNA = "always")
+table(squirrels_raw$study_site_specific, useNA = "always") # values fit together
+140 + 116
+```
+
+### New column "area_type"
+This column differs between "urban" and "rural" area types. This is needed for following analyses with the marked package. Treptower Park and Lilienthal count as urban sites, Rahnsdorf as rural. 
+
+```{r}
+## create new column 
+squirrels_raw <- squirrels_raw %>%
+  mutate(area_type = case_when(
+    Study_site %in% c("Treptower_Park", "Lilienthal") ~ "urban",
+    Study_site == "Rahnsdorf" ~ "rural",
+    TRUE ~ "unknown" # for any other values
+  ))
+```
+
+Check values
+```{r}
+table(squirrels_raw$Study_site, useNA = "always")
+205+256
+table(squirrels_raw$area_type, useNA = "always") # rural 88 urban 461
+```
+
+
+### New columns "year" and "season_year"
+```{r}
+## creating a column for the year that the squirrel was captured in 
+squirrels_raw <- squirrels_raw %>%
+  mutate(Year = year(dmy(Date)))  # dmy() converts "DD.MM.YYYY" to a date format
+
+## create the new column 'season_year'
+squirrels_raw <- squirrels_raw %>%
+  mutate(season_year = paste0(Season, "_", Year))
+```
+
+Check values
+```{r}
+table(squirrels_raw$Year, useNA = "always")
+table(squirrels_raw$season_year, useNA = "always")
+
+table(squirrels_raw$season_year, squirrels_raw$Study_site, useNA = "always")
+```
+
+
+## Cleanup of raw data
+```{r}
+names(squirrels_raw)
+```
+
+Change column type to factor or numeric
+```{r}
+squirrels_raw <- 
+  squirrels_raw %>%
+  mutate(across(.cols = c(Season, Project_phase, Study_site, Trap_nr, Squirrel_ID, Name,
+                          Capture_or_recapture, Sex, repro_status, age_class, physical_status,
+                          nutritional_status, blood_smear, full_blood, plasma, faeces_sample,
+                          after_sample, EHI_feaces, EHI_after, fur_sample, hind_foot_sample,
+                          oral_sample, tissue_sample, EHI_tissue, score_sheet_cat, Weather,
+                          study_site_specific, area_type, season_year),
+                .fns =  as.factor)) %>%
+  mutate(Date = as.Date(Date, format = "%d.%m.%Y")) %>%
+  droplevels()
+
+squirrels_raw$Study_site <- fct_relevel(squirrels_raw$Study_site, "Rahnsdorf") #%>% 
+squirrels_raw$study_site_specific <- fct_relevel(squirrels_raw$study_site_specific, "Rahnsdorf")
+```
+
+Create a new data frame that only includes columns of importance for analysis and remove all rows without an ID
+```{r}
+squirrels <- squirrels_raw %>% 
+  dplyr::select(Date, Year, Season, season_year, Project_phase, 
+                Study_site, study_site_specific, area_type, Trap_nr, 
+                Squirrel_ID, Name, Capture_or_recapture, Sex, age_class, 
+                body_length_mm, tail_length_mm, hind_foot_length_mm, 
+                Weight_squirrel, physical_status, nutritional_status, 
+                tissue_sample, Temperature_Celsius, Weather, 
+                trap_score, docility_score, release_score, protocol_nr, protocol_nr_old) %>%
+  filter(!is.na(Squirrel_ID))
+# protocol_nr_old is important for the genetic data
+```
+
+# Trapping Effort
+## Data manipulation
+```{r}
+## prepare the data frames for further adjustments
+## NAs need to be replaced with 0 and characters (geklaut = stolen), too 
+# Treptow
+trapping_effort_trep <- trapping_effort_trep %>%
+  filter(if_any(everything(), ~ !is.na(.))) %>% # remove empty rows
+  mutate(across(where(is.character), ~recode(.x, "GEKLAUT?" = "0", .default = .x))) %>%
+  mutate(across(where(is.character), ~recode(.x, "09:48" = "0.5", .default = .x))) %>% # add a value of 0.5 because we forgot to activate it, but we did it ~ 2 hours before we stopped
+  mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>%
+  mutate(across(7:26, as.numeric)) 
+
+# Lilie
+trapping_effort_lilie <- trapping_effort_lilie %>%
+  filter(if_any(everything(), ~ !is.na(.))) %>%
+  mutate(across(where(is.character), ~recode(.x, "stolen" = "0", .default = .x))) %>%
+  mutate(across(where(is.character), ~recode(.x, "forgot to activate" = "0", .default = .x))) %>%
+  mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>%
+  mutate(across(7:17, as.numeric))
+
+# Rahnsdorf
+trapping_effort_rahn <- trapping_effort_rahn %>%
+  filter(if_any(everything(), ~ !is.na(.))) %>%
+  mutate(across(where(is.numeric), ~replace_na(.x, 0))) %>%
+  mutate(across(7:20, as.numeric))
+```
+
+Change the format of the table: The columns per trap should become single rows 
+```{r}
+# Treptow
+effort_traps_trep <- trapping_effort_trep %>%
+  select(7:26, Project_phase, Study_site, Trapping_Date, Trapping_Duration) %>%  
+  pivot_longer(cols = c(-Project_phase, -Study_site, -Trapping_Date, -Trapping_Duration), 
+               names_to = "Trap_nr", 
+               values_to = "opened") %>%
+  mutate(hours_day = round(x = as.numeric(x = Trapping_Duration * opened, 
+                                          units = "hours"), 
+                           digits = 2))
+
+# Lilie
+effort_traps_lilie <- trapping_effort_lilie %>%
+  select(7:17, Project_phase, Study_site, Trapping_Date, Trapping_Duration) %>%  
+  pivot_longer(cols = c(-Project_phase, -Study_site, -Trapping_Date, -Trapping_Duration), 
+               names_to = "Trap_nr", 
+               values_to = "opened") %>%
+  mutate(hours_day = round(x = as.numeric(x = Trapping_Duration * opened, 
+                                          units = "hours"), 
+                           digits = 2))
+
+# Rahnsdorf
+effort_traps_rahn <- trapping_effort_rahn %>%
+  select(7:20, Project_phase, Study_site, Trapping_Date, Trapping_Duration) %>%  
+  pivot_longer(cols = c(-Project_phase, -Study_site, -Trapping_Date, -Trapping_Duration), 
+               names_to = "Trap_nr", 
+               values_to = "opened") %>%
+  mutate(hours_day = round(x = as.numeric(x = Trapping_Duration * opened, 
+                                          units = "hours"), 
+                           digits = 2))
+```
+
+
+Combine the different tables into one
+```{r}
+trapping_effort <- bind_rows(effort_traps_trep, effort_traps_lilie, effort_traps_rahn)
+363 + 518 + 840
+# change column types
+trapping_effort <- trapping_effort %>%
+  mutate(across(.cols = c(Project_phase, Study_site, Trap_nr),
+                .fns =  as.factor)) %>%
+  mutate(Date = as.Date(Trapping_Date, format = "%d.%m.%Y")) %>%
+  mutate(Trapping_Duration = hms::as_hms(as.numeric(Trapping_Duration * opened))) # remove the hours for traps that were not activated
+```
+
+## Summaries
+Absolute trapping_duration per day per study site for all traps that were open
+```{r}
+effort_site_phase_day <- trapping_effort %>%
+  group_by(Project_phase, Study_site, Trapping_Date) %>%
+  summarise(hours_day_site = sum(hours_day))
+```
+
+Absolute trapping_duration per project phase per study site for all traps that were open
+```{r}
+effort_site_phase <- trapping_effort %>%
+  group_by(Project_phase, Study_site) %>%
+  summarise(hours_day_site = sum(hours_day))
+```
+
+# Human activity
+## Data manipulation
+### New column "study_site_specific"
+Explanation see above
+
+```{r}
+hum_act <- hum_act %>%
+  dplyr::mutate(study_site_specific = dplyr::case_when(
+    Trap_nr %in% treptower_park_south ~ "Treptow_south",
+    Trap_nr %in% treptower_park_north ~ "Treptow_north",
+    Study_site == "Lilienthal" ~ "Lilienthal",
+    Study_site == "Rahnsdorf" ~ "Rahnsdorf",
+    TRUE ~ NA_character_  # For all other cases, set to NA
+  ))
+```
+
+Check values
+```{r}
+table(hum_act$Study_site, useNA = "always")
+table(hum_act$study_site_specific, useNA = "always") # values fit together
+109 + 109
+```
+
+### New column "area_type"
+This column differs between "urban" and "rural" area types. This is needed for following analyses with the marked package. Treptower Park and Lilienthal count as urban sites, Rahnsdorf as rural. 
+
+```{r}
+## create new column 
+hum_act <- hum_act %>%
+  mutate(area_type = case_when(
+    Study_site %in% c("Treptower_Park", "Lilienthal") ~ "urban",
+    Study_site == "Rahnsdorf" ~ "rural",
+    TRUE ~ "unknown" # for any other values
+  ))
+```
+
+Check values
+```{r}
+table(hum_act$Study_site, useNA = "always")
+13+218
+table(hum_act$area_type, useNA = "always") # rural 88 urban 461
+```
+
+
+### New column "year"
+
+```{r}
+## creating a column for the year that the squirrel was captured in 
+hum_act <- hum_act %>%
+  mutate(Year = year(dmy(Date)))  # dmy() converts "DD.MM.YYYY" to a date format
+```
+
+Check values
+```{r}
+table(hum_act$Year, useNA = "always")
+```
+### New column "timeblock"
+There are too many different starting times (start_obs).
+We will standardise them and create 30 min time blocks 
+```{r}
+hum_act <- hum_act %>%
+  mutate(
+    timeblock = case_when(
+      # Start_obs %in% c("07:00:00", "07:05:00") ~ "07:00",
+      # Start_obs %in% c("07:30:00", "07:31:00", "07:32:00", "07:33:00", "07:34:00", 
+      #                  "07:35:00") ~ "07:30",
+      Start_obs %in% c("07:50:00", "07:55:00", "08:00:00", "08:01:00", "08:02:00", 
+                       "08:03:00", "08:04:00", "08:05:00", "08:10:00", "08:15:00") ~ "08:00",
+      Start_obs %in% c("08:18:00", "08:20:00", "08:24:00", "08:25:00", "08:30:00", "08:31:00", "08:32:00", 
+                       "08:33:00", "08:34:00", "08:35:00","08:40:00", "08:45:00" ) ~ "08:30",
+      Start_obs %in% c("08:55:00", "09:00:00", "09:03:00", "09:04:00", "09:05:00", "09:06:00", 
+                       "09:10:00", "09:15:00") ~ "09:00",
+      Start_obs %in% c( "09:16:00", "09:30:00", "09:33:00", "09:34:00", "09:35:00", "09:40:00", 
+                        "09:45:00") ~ "09:30",
+      Start_obs %in% c("09:55:00", "09:57:00", "10:00:00", "10:01:00", "10:03:00", "10:04:00", 
+                       "10:05:00", "10:10:00", "10:15:00") ~ "10:00",
+      Start_obs %in% c("10:20:00","10:25:00", "10:30:00", "10:31:00", "10:33:00", "10:35:00", 
+                       "10:37:00", "10:40:00") ~ "10:30",
+      Start_obs %in% c("11:00:00","11:03:00", "11:05:00", "11:07:00") ~ "11:00",
+      Start_obs %in% c("11:30:00") ~ "11:30"
+    )
+  )
+
+unique(hum_act$timeblock)
+
+# hourly time block
+hum_act <- hum_act %>%
+  mutate(
+    hourblock = case_when(
+      #timeblock %in% c("07:00", "07:30") ~ "07:00",
+      timeblock %in% c("08:00", "08:30") ~ "08:00",
+      timeblock %in% c("09:00", "09:30") ~ "09:00",
+      timeblock %in% c("10:00", "10:30") ~ "10:00",
+      timeblock %in% c("11:00", "11:30") ~ "11:00"
+    )
+  )
+
+unique(hum_act$hourblock)
+```
+
+Quick exploration
+```{r}
+table(hum_act$Study_site, hum_act$timeblock)
+table(hum_act$Trap_nr, hum_act$timeblock)
+table(hum_act$Study_site, hum_act$hourblock)
+table(hum_act$Trap_nr, hum_act$hourblock)
+```
+## Count days per study site
+```{r}
+days <- hum_act %>% 
+  group_by(Study_site, Date) %>% 
+  summarise(n_obs_day = n())
+
+days
+
+days2 <- days %>% 
+  group_by(Study_site) %>%
+  summarise(n_days = n())
+
+days2
+table(days$Study_site)
+```
+
+## Calculate direct human activity 
+
+total human activity -> adding up the number of people, dogs, and extraordinary 
+events (e.g. cars).
+```{r}
+hum_act <- hum_act %>%
+  mutate(
+    huac = People + Dogs + Bicycles + Ex_events)
+```
+
+
+## Calculating mean human activity
+We need values for the human acitivty
+In 2024 and 2025 students measured the human activity at 2 specific spots per study site, in total 6 spots.
+For the following analysis we calculate the mean value of the total human activity per study site or the specific study sites where Treptower park is divided in two parts
+
+Means (not used, because not accounting for the number of observations)
+```{r}
+huac_means <- hum_act %>%
+  group_by(Study_site) %>%
+  summarise(sum_huac = sum(huac)) %>%
+  mutate(mean_30 = sum_huac/8,
+         mean_60 = sum_huac/4)
+```
+
+Means per timeblock (not used)
+```{r}
+huac_means_site_block <- hum_act %>%
+  group_by(Study_site, timeblock, hourblock) %>% 
+  summarise(mean_huac = mean(huac),
+            mean_people = mean(People),
+            mean_dogs = mean(Dogs),
+            mean_bikes = mean(Bicycles),
+            mean_exevents = mean(Ex_events),
+            n_obs = n(),
+            .groups = "drop")
+
+
+huac_means_specific_block <- hum_act %>%
+  group_by(study_site_specific, timeblock, hourblock) %>% 
+  summarise(mean_huac_spec = mean(huac),
+            mean_people = mean(People),
+            mean_dogs = mean(Dogs),
+            mean_bikes = mean(Bicycles),
+            mean_exevents = mean(Ex_events),
+            n_obs = n(),
+            .groups = "drop")
+```
+
+Means per study site = total sum divided by interval (used)
+```{r}
+huac_means <- hum_act %>%
+  group_by(Study_site) %>% 
+  summarise(sum_all_huac = sum(huac),
+            n_obs = n(),
+            sum_huac = sum_all_huac/n_obs, 
+            .groups = "drop") %>%
+  mutate(mean_30 = sum_huac/8,
+         mean_60 = sum_huac/4)
+
+huac_means_specific <- hum_act %>%
+  group_by(Study_site, study_site_specific) %>% 
+  summarise(sum_all_huac = sum(huac),
+            n_obs = n(),
+            sum_huac = sum_all_huac/n_obs, 
+            .groups = "drop") %>%
+  mutate(spec_mean_30 = sum_huac/8,
+         spec_mean_60 = sum_huac/4) %>%
+  left_join(y = huac_means[, c(1,5,6)], by = "Study_site") # add the values per study site
+```
+
+
+
+# Save data
+```{r}
+# Squirrel CMR
+## raw data
+vroom::vroom_write(x = squirrels_raw, file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20251127.csv"))
+saveRDS(object = squirrels_raw, file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20251127.RDS"))
+
+## data for analysis
+vroom::vroom_write(x = squirrels, file = here::here("output", "data-proc", "cmr-proc", "squirrels_20251127.csv"))
+saveRDS(object = squirrels, file = here::here("output", "data-proc", "cmr-proc", "squirrels_20251127.RDS"))
+
+# Trapping effort
+## total
+vroom::vroom_write(x = trapping_effort, file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_20251122.csv"))
+saveRDS(object = trapping_effort, file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_20251122.RDS"))
+
+## per study site, per project phase, per day
+saveRDS(object = effort_site_phase_day, file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_sitephaseday_20251122.RDS"))
+
+## per study site, per project phase
+saveRDS(object = effort_site_phase, file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_sitephase_20251122.RDS"))
+
+# Human activity
+## total, detailed table
+vroom::vroom_write(x = hum_act, file = here::here("output", "data-proc", "cmr-proc", "human_activity_20251127.csv"))
+saveRDS(object = hum_act, file = here::here("output", "data-proc", "cmr-proc", "human_activity_20251127.RDS"))
+
+## means
+saveRDS(object = huac_means_specific, 
+        file = here::here("output", "data-proc", "cmr-proc", "human_activity_means_20251127.RDS"))
+```
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

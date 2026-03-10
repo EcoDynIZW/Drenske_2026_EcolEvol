@@ -1,0 +1,92 @@
+---
+title: "imperviousness raster 2015" ## name of your project
+author: "Moritz Wenzler-Meya"                     ## your name(s)
+date: "`r Sys.Date()`"                  ## current date
+output:
+  rmdformats::readthedown:
+    code_folding: hide                  ## hide or show code by default?
+    toc_depth: 3                        ## 3-level TOC
+---
+
+```{r setup, include=FALSE}
+## You can ignore this chunk in most cases
+## If you want to modify chunk options, you can do it here for all chunks or
+## add the options in the repsective chunk header, e.g. `{r, message = FALSE}`
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = TRUE,
+                      fig.width = 9, fig.height = 6, dpi = 500, 
+                      retina = 1, fig.showtext = TRUE)
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+sapply(list("sf", "tidyverse", "raster", "ows4R", "here"), 
+       library, character.only = TRUE, logical.return = TRUE)
+
+source(here("R", "download_fisbroker_metadata.R"))
+```
+
+
+# Data
+
+```{r data}
+imp_E45N32 <- raster(here("data-raw", "europe", "imperviousness_europe_raster_10m_2018_3035", 
+                    "edde25e6b28631e4b20e39dc5fa7dba7aea32c67",
+                    "IMD_2018_010m_de_03035_v020", "IMD_2018_010m_de_03035_v020", "DATA",
+                    "IMD_2018_010m_E45N32_03035_v020.tif")) 
+
+berlin_district <- st_read(here("data-raw", "berlin", "berlin_districts_2020_3035", "berlin_districts_2020_3035.gpkg"))
+
+temp_ras <- raster(here("data-proc", "berlin", "template_raster_berlin_10m_2020_3035", "template_raster_berlin_10m_2020_3035.tif"))
+
+imp_E45N32_c <- crop(imp_E45N32, temp_ras) 
+
+plot(imp_E45N32_c)
+
+imp_E45N32_c[is.na(imp_E45N32_c)] <- 0
+
+imp_E45N32_c_mask <- raster::mask(x = imp_E45N32_c, 
+                                 mask = berlin_district,
+                                 updatevalue = NA
+                                 )
+plot(imp_E45N32_c_mask)
+
+create_meta_raster(imp_E45N32_c_mask, 
+                   name = "imperviousness_berlin_copernicus_raster_10m",
+                   date = "2018",
+                   epsg = "3035",
+                   units = "percentage of imperviousness per cell",
+                   descr = NA,
+                   orig_source = read.csv(here("data-raw",  "europe", "imperviousness_europe_raster_10m_2018_3035",
+                    "metadata_imperviousness_europe_raster_10m_2018_3035.csv"), header = TRUE, sep = ";")$source,
+                   data_source = here("data-raw", "europe", "imperviousness_europe_raster_10m_2018_3035", 
+                    "edde25e6b28631e4b20e39dc5fa7dba7aea32c67",
+                    "IMD_2018_010m_de_03035_v020", "IMD_2018_010m_de_03035_v020", "DATA",
+                    "IMD_2018_010m_E45N32_03035_v020.tif"),
+                   d_down = NA,
+                   mod = "NAs (zero values) inside Berlin borders where set to 0",
+                   path = "data-proc/berlin",
+                   folder = TRUE)
+
+writeRaster(imp_E45N32_c_mask, here("data-proc", "berlin", "imperviousness_berlin_copernicus_raster_10m_2018_3035", "imperviousness_berlin_copernicus_raster_10m_2018_3035.tif"), overwrite = TRUE)
+```
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

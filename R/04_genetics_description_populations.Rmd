@@ -1,0 +1,1553 @@
+---
+title: "Squirrel genetics: Descriptive genetic per population" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+#library()
+d6::simple_load(c("adegenet", 
+                  "FSA", 
+                  "hierfstat",
+                 # "kkeenan02/diveRsity", 
+                  "tidyverse", 
+                  #"ggplot2", 
+                  #"gridExtra", 
+                  #"here", 
+                  "pegas",
+                 "inbreedR", 
+                 # "royfrancis/pophelper",
+                  "poppr",
+                 "related",
+                 "rstatix", 
+                 "writexl"
+                  #"ericarcher/strataG"
+                  #"scatterpie"
+))
+# For the package related: please follow the instructions here: https://github.com/timothyfrasier/related 
+```
+
+```{r}
+set.seed(20200604)
+```
+
+
+## Plot setup
+Set theme for ggplots
+```{r theme}
+theme_set(
+  theme(
+    legend.position = "none",
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 2),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    title = element_text(size = 20), # axis family = "Zilla Slab", family = "Roboto", 
+    axis.text = element_text(size = rel(1.4)))) # axis ticks, family = "Roboto", 
+```
+
+Labeller for study sites
+```{r}
+# Remove the underscore in the name of the study site without changing the factor levels
+Study_site_names <- as_labeller(c("Rahnsdorf" = "woodland area", "Treptower_Park" = "urban park", "Lilienthal" = "cemetery"))
+```
+
+
+E:/PopDynCloud/Projects/sciurus_vulgaris_b_cmr_drenske_s/plots/allel_richness.png
+
+# Data
+
+```{r data}
+# Individual genetic data
+# squirrel_genind <- read.genepop(file = here::here("data-raw", "genetic-raw", "Cervus",  "Squirrel_Genotypes_136_IDs_20250718-GENEPOP.gen"), ncode = 3, quiet = TRUE)
+squirrel_genind <- read.genepop(file = here::here("data-raw", "genetic-raw",
+                                                  "Squirrel_Genotypes_135_IDs_20250816-GENEPOP.gen"), 
+                                ncode = 3, 
+                                quiet = TRUE)
+
+
+# Genetic and CMR data
+gen_squirrels_135_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
+                                                   "gen_squirrels_135_IDs_20250719.RDS"))
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>%
+  mutate(Study_site = factor(Study_site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
+
+gen_squirrels_93_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
+                                                   "gen_squirrels_93_IDs_20250823.RDS"))
+
+gen_squirrels_93_IDs <- gen_squirrels_93_IDs %>%
+  mutate(Study_site = factor(Study_site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
+```
+
+
+## Add Strata
+```{r}
+# Add strata (grouping variables, individual characteristics) to the genind object
+strata(squirrel_genind) <- gen_squirrels_135_IDs
+```
+
+## Prepare objects for genetic analyses
+```{r}
+# GENIND
+# genind object with study sites as the populations
+squirrel_genind_sites <- squirrel_genind
+setPop(squirrel_genind_sites) <- ~Study_site 
+
+# genind object with sex & study sites as the populations
+squirrel_genind_sites_sex <- squirrel_genind
+setPop(squirrel_genind_sites_sex) <- ~Study_site/Sex 
+
+# Separate the genotypes per population (needed for some analyses)
+study_sites_pop <- seppop(squirrel_genind_sites)
+# And per study site (needed for inbreeding)
+Rahn_pop <- seppop(squirrel_genind_sites)$Rahnsdorf
+Lilie_pop <- seppop(squirrel_genind_sites)$Lilienthal
+Treptow_pop <- seppop(squirrel_genind_sites)$Treptower_Park
+
+# genpop object: coverts genotypes data into alleles counts per population
+squirrel_pop <- genind2genpop(squirrel_genind_sites)
+squirrel_pop
+
+# HIERFSTAT
+# hierfstat object all individuals together
+squirrel_all_hierf <- genind2hierfstat(squirrel_genind)
+
+# hierfstat object study sites
+squirrel_sites_hierf <- genind2hierfstat(squirrel_genind_sites)
+```
+
+Transform genind objects to datasets for plotting
+```{r}
+squirrel_genind_df <- genind2df(squirrel_genind)
+squirrel_genind_sites_df <- genind2df(squirrel_genind_sites)
+levels(squirrel_genind_sites_df$pop)
+squirrel_genind_sites_df <- squirrel_genind_sites_df %>%
+  mutate(pop = fct_relevel(pop, "Rahnsdorf", "Lilienthal", "Treptower_Park"))
+levels(squirrel_genind_sites_df$pop)
+```
+
+## Save data
+```{r}
+# # squirrel_genind_df
+# squirrel_genind_sites_df <- squirrel_genind_sites_df %>%
+#   rownames_to_column() %>%
+#   rename(Squirrel_ID = rowname)
+# vroom::vroom_write(x = squirrel_genind_sites_df,
+#                    file = here::here("output", "data-proc", "genetic-proc", "squirrel_genind_sites_df_20251108.csv"))
+# saveRDS(object = squirrel_genind_sites_df,
+#         file = here::here("output", "data-proc", "genetic-proc", "squirrel_genind_sites_df_20251108.RDS"))
+# write_xlsx(x = squirrel_genind_sites_df, path = here::here("output", "data-proc", "genetic-proc", "squirrel_genind_sites_df_20251108.xlsx"))
+```
+
+
+# Data exploration
+## Genind objects
+```{r}
+squirrel_genind
+```
+
+
+```{r}
+squirrel_genind_sites
+```
+
+
+```{r}
+study_sites_pop
+```
+
+
+```{r}
+popNames(squirrel_genind) # 506 - the ID of the last individual
+nAll(squirrel_genind) # returns the number of alleles for each locus.
+nPop(squirrel_genind) # returns the number of populations.
+#tab(squirrel_genind)
+#indNames(squirrel_genind)
+locNames(squirrel_genind)
+alleles(squirrel_genind)
+ploidy(squirrel_genind) # returns/sets ploidy of the individuals (Anzahl vollständiger Chromosomensätze)
+```
+
+
+```{r}
+popNames(squirrel_genind_sites) # 3 Populations, our study sites
+nAll(squirrel_genind_sites) # returns the number of alleles for each locus.
+nPop(squirrel_genind_sites) # returns the number of populations.
+#tab(squirrel_genind_sites)
+#indNames(squirrel_genind_sites)
+#locNames(squirrel_genind_sites)
+#alleles(squirrel_genind_sites)
+#ploidy(squirrel_genind_sites) # r
+```
+
+```{r}
+popNames(squirrel_pop)
+nAll(squirrel_pop)
+```
+
+
+## Hierfstat objects
+Quick look at the hierfstat objects
+```{r}
+head(squirrel_all_hierf) # pop = 1 = all together
+head(squirrel_sites_hierf) # pop = Study sites
+```
+
+
+## Basic summary of the data
+```{r}
+# all together
+gen_sum <- summary(squirrel_genind)
+gen_sum
+names(gen_sum)
+
+# per study site
+gen_sum_sites <- summary(squirrel_genind_sites)
+gen_sum_sites
+
+# per population (not really helpful)
+gen_sum_pop <- summary(squirrel_pop)
+gen_sum_pop
+```
+
+```{r}
+table(gen_squirrels_135_IDs$Study_site)
+table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
+table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
+# in total 135
+```
+
+
+```{r}
+# ggplot(data = squirrel_genind_sites_df, mapping = aes(x = pop, fill = pop)) + 
+#   geom_bar() +
+#   scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+#                                "Lilienthal" = "orange2", 
+#                                "Rahnsdorf" = "palegreen4")) 
+
+ggplot(data = gen_squirrels_135_IDs, mapping = aes(x = Study_site, fill = Study_site)) + 
+  geom_bar() +
+  scale_x_discrete(expand = c(0.001, 0.001), labels = Study_site_names) + 
+  scale_y_continuous(
+    limits = c(0, 75),
+    breaks = seq(0, 75, by = 25),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "#8B2F1D", 
+                               "Lilienthal" = "#F0A202", 
+                               "Rahnsdorf" = "#006D6F")) +
+  labs(x = "Study site", y = "Nr of individuals") 
+
+# ggsave(filename = here::here("plots","genetics", "samples_study_site_135IDS_20250906.png"),
+#        # width = 1650*1.25,
+#        # height = 1200,
+#        # units = "px",
+#        dpi = 300)
+
+ggplot(data = gen_squirrels_93_IDs, mapping = aes(x = Study_site, fill = Study_site)) + 
+  geom_bar() +
+  scale_x_discrete(expand = c(0.001, 0.001), labels = Study_site_names) + 
+  scale_y_continuous(
+    limits = c(0, 75),
+    breaks = seq(0, 75, by = 25),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "#8B2F1D", 
+                               "Lilienthal" = "#F0A202", 
+                               "Rahnsdorf" = "#006D6F")) +
+  labs(x = "Study site", y = "Nr of individuals") 
+
+# ggsave(filename = here::here("plots","genetics", "samples_study_site_93IDS_20250906.png"),
+#        # width = 1650*1.25,
+#        # height = 1200,
+#        # units = "px",
+#        dpi = 300)
+```
+
+
+
+
+# Number of alleles per locus (NA)
+For all individuals and all loci
+```{r}
+nr_all <- nAll(squirrel_genind_sites)
+nr_all
+```
+Per study site:
+Here we have to calculate the count of copies per allele
+```{r}
+AC <- allele.count(squirrel_sites_hierf)
+#AC
+AC$Rsu3
+```
+and then we calculate the number of different alleles per study site
+```{r}
+# Create a clean tibble with the number of alleles per population and locus
+allele_counts_tbl <- lapply(names(AC), function(locus) {
+  
+  mat <- AC[[locus]]                  # Extract the allele count matrix for this locus
+  n_alleles_pop <- apply(             # Count alleles per population:
+    mat,                              # For each population (column), count how many alleles
+    2,                                # appear at least once (value > 0)
+    function(col) sum(col > 0)
+  )
+  
+  # Build a temporary data.frame for this locus
+  out <- data.frame(
+    locus = locus,                    # Locus name
+    population = names(n_alleles_pop),# Population names
+    n_alleles = n_alleles_pop,        # Number of alleles observed in that population
+    row.names = NULL                  # Remove row names here already
+  )
+  
+  out
+}) |> 
+  bind_rows() |>                      # Combine all loci into one table
+  mutate(row_id = row_number()) |>    # Reset and generate clean sequential row numbers
+  relocate(row_id)                    # Move row_id to the first column
+
+allele_counts_tbl
+```
+
+Sum, Mean, SD number of alleles per population
+```{r}
+pop_mean_N_all <- allele_counts_tbl %>%
+  group_by(population) %>%
+  summarize(sum_all_counts = sum(n_alleles),
+            mean_all_counts = mean(n_alleles),
+            sd_all_counts = sd(n_alleles))
+pop_mean_N_all
+
+# # Test
+# TP_all <- allele_counts_tbl %>% filter(population == "Treptower_Park")
+# mean(TP_all$n_alleles)
+# sum(TP_all$n_alleles)
+# Lilie_all <- allele_counts_tbl %>% filter(population == "Lilienthal")
+# mean(Lilie_all$n_alleles)
+# sum(Lilie_all$n_alleles)
+# Rahn_all <- allele_counts_tbl %>% filter(population == "Rahnsdorf")
+# mean(Rahn_all$n_alleles)
+# sum(Rahn_all$n_alleles)
+```
+## test for significant differences
+Kruskal Wallis Test + Wilcoxon 
+```{r}
+kruskal.test(n_alleles ~ as.factor(population), data = allele_counts_tbl)
+
+pairwise.wilcox.test(
+  x = allele_counts_tbl$n_alleles,
+  g = allele_counts_tbl$population,
+  p.adjust.method = "bonferroni"
+)
+```
+
+# Allele frequency
+Frequency of each allel in a population
+
+## All together
+```{r}
+allele_freqs <- tab(squirrel_genind, freq = TRUE, NA.method = "asis")
+allele_freqs
+```
+
+
+```{r}
+allele_freq_summary <- apply(allele_freqs, 2, mean, na.rm = TRUE)
+allele_freq_summary # sums up to 1 per locus
+```
+
+
+```{r}
+# # overall number of alleles per individual
+#allele_counts <- tab(squirrel_genind, freq = FALSE)
+# allele_counts
+
+# relative allele frequencies per Locus per individual 
+allele_freq <- as.data.frame(tab(squirrel_genind, freq = TRUE))
+allele_freq
+```
+
+
+```{r}
+#par(mfrow=c(2,2))
+#plot(gen_sum$n.by.pop, gen_sum$pop.n.all, xlab="Colonies sample size",
+#ylab="Number of alleles",main="Alleles numbers and sample sizes",
+#type="n")
+#text(gen_sum$n.by.pop,gen_sum$pop.n.all,lab=names(gen_sum$n.by.pop))
+barplot(gen_sum$loc.n.all, ylab = "Number of alleles",
+main = "Number of alleles per locus")
+
+```
+
+## Per study site
+short way
+```{r}
+#stats_sites$pop.freq
+```
+
+Calculate allele frequencies for each population
+```{r}
+allele_freq_per_pop <- lapply(study_sites_pop, function(pop) {
+  as.data.frame(tab(pop, freq = TRUE))  # Frequencies per individual
+})
+allele_freq_per_pop
+```
+
+ Aggregate to get mean allele frequency per locus per population (sum over individuals / n_individuals)
+```{r}
+allele_freq_summary <- lapply(allele_freq_per_pop, function(df) {
+  colMeans(df, na.rm = TRUE)
+})
+allele_freq_summary
+```
+
+ Combine into data.frame
+```{r}
+allele_freq_summary_df <- as.data.frame(do.call(rbind, allele_freq_summary))
+allele_freq_summary_df
+```
+
+Add population names as column and reset rownames
+```{r}
+allele_freq_summary_df$population <- names(allele_freq_summary)
+#allele_freq_summary_df
+allele_freq_summary_df <- allele_freq_summary_df %>% 
+  dplyr::select(population, dplyr::everything()) # population as first column
+#allele_freq_summary_df
+rownames(allele_freq_summary_df) <- NULL
+allele_freq_summary_df
+```
+
+Round values and look at results
+```{r}
+allele_freq_summary_df <- allele_freq_summary_df %>% mutate(across(where(is.numeric), ~ round(., 3)))
+
+allele_freq_summary_df
+```
+
+```{r}
+allele_freq_long <- allele_freq_summary_df %>%
+  pivot_longer(cols = -population,
+               names_to = "allele",
+               values_to = "frequency")
+allele_freq_long
+```
+
+```{r}
+ggplot(allele_freq_long,
+       aes(x = allele, y = frequency, fill = population)) +
+  geom_col(position = "dodge") +
+  labs(
+    x = "Allele",
+    y = "Frequency",
+    fill = "Population",
+    title = "Allele Frequencies per Population"
+  ) +
+  theme_minimal() + 
+  facet_wrap(~population, nrow = 3)
+
+ggplot(allele_freq_long,
+       aes(x = allele, y = population, fill = frequency)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(
+    x = "Allele",
+    y = "Population",
+    fill = "Frequency",
+    title = "Heatmap of Allele Frequencies"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+```
+
+
+# Allelic richness (Ar)
+Number of different alleles per locus in a population. Considers only the number of existing alleles, regardless of their frequency. High allelic richness indicates extensive genetic diversity and is important for a populations ability to adapt to environmental changes
+
+## All together
+```{r}
+# calculate Allelic Richness 
+allelic_richness_all <- allelic.richness(squirrel_all_hierf, diploid = TRUE)
+#allelic_richness_all
+
+# look at the output
+allelic_richness_all$Ar  # Matrix mit Richness-Werten pro Locus und Population
+#allelic_richness_all$Pop
+```
+```{r}
+#boxplot(t(allelic_richness_all$Ar)) 
+barplot(t(allelic_richness_all$Ar))
+```
+
+## Study sites
+```{r}
+# calculate Allelic Richness 
+allelic_richness_sites <- allelic.richness(squirrel_sites_hierf)
+allelic_richness_sites$min.all # number of alleles used for rarefaction
+
+# look at the output
+allelic_richness_all$Ar
+allelic_richness_sites$Ar  # Matrix mit Richness-Werten pro Locus und Population
+
+# Mean allelic richness per population (does that calculation even make sense?)
+round(apply(allelic_richness_sites$Ar, 2, mean, na.rm = TRUE), digits = 2)
+round(apply(allelic_richness_sites$Ar, 2, sd, na.rm = TRUE), digits = 2)
+```
+
+```{r}
+barplot(t(allelic_richness_all$Ar)) 
+barplot(t(allelic_richness_sites$Ar), 
+        beside = TRUE, 
+        legend.text = TRUE,
+        args.legend = list(x = "topleft"))
+```
+Transform data frame
+```{r}
+allelic_richness_tbl <- allelic_richness_sites$Ar %>%
+  as.data.frame() %>%                     # Convert matrix to data.frame
+  rownames_to_column(var = "locus") %>%   # Add loci as a column
+  pivot_longer(
+    cols = -locus,                        # Everything except 'locus' column
+    names_to = "population",              # Column names become population
+    values_to = "Ar"  )                    # Cell values become Ar
+  # ) %>%
+  # mutate(row_id = row_number()) %>%       # Add sequential row numbers
+  # relocate(row_id)                         # Move row_id to the first column
+
+# View result
+head(allelic_richness_tbl)
+```
+
+Kruskal Wallis Test
+```{r}
+kruskal.test(Ar ~ as.factor(population), data = allelic_richness_tbl)
+pairwise.wilcox.test(
+  x = allelic_richness_tbl$Ar,
+  g = allelic_richness_tbl$population,
+  p.adjust.method = "bonferroni"
+)
+```
+
+
+
+
+# Private alleles
+A private allele is a genetic variation found exclusively in a single population and not in others. 
+
+How to calculate the number of private alleles:
+Tabulate alleles that occur in only one population.
+```{r}
+pa <- private_alleles(squirrel_genind_sites)
+pa
+```
+
+Other way of visualisation, now with one row per private allel
+```{r}
+priv_allel <- as.data.frame(t(private_alleles(squirrel_genind_sites)))
+priv_allel <- rownames_to_column(priv_allel, var = "Locus.Allel")
+priv_allel <- priv_allel %>% 
+  separate_wider_delim(cols = Locus.Allel, names = c("Locus", "Allel"), delim = ".", cols_remove = FALSE)
+
+priv_allel
+
+
+colSums(priv_allel != 0) # count the nr of rows with another value than 0
+```
+
+Rahnsdorf has 15 private alleles
+Lilienthal 6
+Treptow 12
+
+# Basic statistics per loci and populations
+## All together
+```{r}
+stats_all <- basic.stats(squirrel_all_hierf)
+stats_all
+# Ho = observed heterozygosity
+# Hs = within population gene diversity (sometimes misleadingly called expected heterozygosity)
+# perloc = basic statistics per loci
+# overall = basic statistics averaged over loci
+
+# Basic statistics
+# Ho, Hs see above
+# Ht = overall gene diversity, total heterozygosity
+# Dst = amount of gene diversity (Ht - Hs)
+# Htp = (maybe expected heterozygosity when sample sizes are even)
+# Dstp = Proportional differentiation Dst/Ht
+# Fst = Inbreeding between populations
+# Fis = 1 - Ho/Hs = Inbreeding within a population
+# Dest = Jost's D
+
+```
+
+## Study sites
+```{r}
+stats_sites <- basic.stats(squirrel_sites_hierf)
+stats_sites
+# Ho = observed heterozygosity
+# Hs = within population gene diversity (sometimes misleadingly called expected heterozygosity)
+# perloc = basic statistics per loci
+# overall = basic statistics averaged over loci
+
+# Basic statistics
+# Ho, Hs see above
+# Ht = overall gene diversity, total heterozygosity
+# Dst = amount of gene diversity (Ht - Hs)
+# Htp = (maybe expected heterozygosity when sample sizes are even)
+# Dstp = Proportional differentiation Dst/Ht
+# Fst = Inbreeding between populations
+# Fis = 1 - Ho/Hs = Inbreeding within a population
+# Dest = Jost's D
+```
+
+```{r}
+stats_sites$Ho
+colMeans(stats_sites$Ho, na.rm = TRUE)
+```
+
+```{r}
+stats_sites$pop.freq
+```
+
+
+# Heterozygosity (Ho + He, distribution of indidivuals per Loci)
+Heterozygosity refers to the presence of different alleles at a given locus in an individual's genome. In a population genetics context, it is a measure of genetic variation and represents the proportion of individuals in a population that are heterozygous (having two different alleles, e.g., AaAaAa) at a specific locus.
+Heterozygosity is a key indicator of genetic diversity, which is important for a population's adaptability and long-term survival.
+
+H_obs = H_exp = HWE, no inbreeding, no selection
+H_obs < H_exp = Inbreeding, selection
+H_obs > H_exp = hybridisation, mix of different groups
+
+Observed Heterozygosity: H_obs
+The percentage of loci in a population that is heterozygous is known as observed heterozygosity (HO), and it is determined for each locus by dividing the total number of heterozygotes by the sample size.
+
+Expected Heterozygosity: H_exp
+This is the proportion of heterozygotes expected in a population under Hardy-Weinberg Equilibrium (HWE), based on the allele frequencies at the locus. 
+## All together
+```{r}
+#ChatGPT
+# bs <- hierfstat::basic.stats(squirrel_genind)
+# 
+# He <- bs$Hs      # expected heterozygosity per locus
+# Ho <- bs$Ho      # observed heterozygosity per locus
+# Ae <- 1 / (1 - He)  # effective number of alleles
+
+
+Hobs_all <- stats_all$Ho %>%
+  as.data.frame() %>%
+  rename(Hobs = 1) %>%
+  select(Hobs)
+
+Hexp_all <- stats_all$Hs %>%
+  as.data.frame() %>%
+  rename(Hexp = 1) %>%
+  select(Hexp)
+
+Hobs_all
+Hexp_all
+```
+
+
+Is mean observed H significantly lower than mean expected H ? Hint about inbreeding
+```{r}
+mean(Hobs_all$Hobs)
+mean(Hexp_all$Hexp)
+
+
+t.test(x = Hobs_all$Hobs, 
+       y = Hexp_all$Hexp, 
+       pair = T, 
+       var.equal = TRUE, 
+       alternative = "less" 
+       )
+
+# Mean values are significantly different
+
+```
+## Study sites
+```{r}
+hobs_site <- as.data.frame(stats_sites$Ho)
+hobs_site
+
+hexp_site <- as.data.frame(stats_sites$Hs)
+hexp_site
+
+hobs_site_mean <- colMeans(hobs_site, na.rm = TRUE)
+hexp_site_mean <- colMeans(hexp_site, na.rm = TRUE)
+hobs_site_mean
+hexp_site_mean
+
+# Rahnsdorf Hobs = Hexp
+# Lilie Hobs < Hexp
+# Treptow Hobs < Hexp
+```
+
+```{r}
+het_summary <- data.frame(
+  population = colnames(hobs_site),
+  Ho_mean = round(colMeans(hobs_site, na.rm = TRUE), 2),
+  Ho_mean2 = apply(hobs_site, 2, mean, na.rm = TRUE),
+  Ho_sd = round(apply(hobs_site, 2, sd, na.rm = TRUE), 2),
+  Hs_mean = round(colMeans(hexp_site, na.rm = TRUE), 2),
+  Hs_mean2 = apply(hexp_site, 2, mean, na.rm = TRUE),
+  Hs_sd = round(apply(hexp_site, 2, sd, na.rm = TRUE), 2)
+)
+
+het_summary
+```
+
+```{r}
+t_test_rahnsdorf <- t.test(
+  x = hobs_site$Rahnsdorf,      # observed heterozygosity per locus
+  y = hexp_site$Rahnsdorf,      # expected heterozygosity per locus
+  paired = TRUE,             # paired because each locus is a pair
+  alternative = "two.sided" # test if Ho is different from Hs (default)
+)
+
+t_test_rahnsdorf
+# 15 df = 16 Loci -1
+# p = 0.28 = not significant
+# mean difference = -0.033 Ho is on average 3.3% lower than He
+
+# t.test(x = hobs_site$Rahnsdorf, 
+#        y = hexp_site$Rahnsdorf, 
+#        paired = TRUE, 
+#        alternative = "two.sided" 
+#        )
+# 
+# # NS
+# 
+# t.test(x = hobs_site$Lilienthal, 
+#        y = hexp_site$Lilienthal, 
+#        paired = TRUE, 
+#        alternative = "two.sided" 
+#        )
+# 
+# # p 0.02 = Hint about inbreeding
+# 
+# t.test(x = hobs_site$Treptower_Park, 
+#        y = hexp_site$Treptower_Park, 
+#        paired = TRUE, 
+#        alternative = "two.sided" 
+#        )
+# 
+# # p 0.02 = Hint about inbreeding
+```
+
+Observed heterozygosity (Ho) did not significantly differ from expected heterozygosity (Hs) in Rahnsdorf (paired t-test, t = -1.12, df = 15, p = 0.28), indicating no deviation from Hardy-Weinberg expectations.
+
+```{r}
+# Get population names
+populations <- colnames(hobs_site)
+
+# Run paired t-test for each population and store results in a list
+t_test_results <- lapply(populations, function(pop) {
+  test <- t.test(
+    hobs_site[[pop]],   # observed heterozygosity
+    hexp_site[[pop]],   # expected heterozygosity
+    paired = TRUE,
+    alternative = "two.sided"
+  )
+  
+  # Return a small dataframe with key results
+  data.frame(
+    population = pop,
+    t_value = test$statistic,
+    df = test$parameter,
+    p_value = test$p.value,
+    mean_diff = test$estimate
+  )
+})
+
+# Combine list into one table
+t_test_summary <- bind_rows(t_test_results)
+
+# Round numbers for readability
+t_test_summary <- t_test_summary %>%
+  mutate(
+    t_value = round(t_value, 2),
+    df = round(df, 0),
+    p_value = round(p_value, 3),
+    mean_diff = round(mean_diff, 3)
+  )
+
+t_test_summary
+
+```
+
+Observed heterozygosity (Ho) varied among populations. In Rahnsdorf, Ho did not differ significantly from expected heterozygosity (Hs) (paired t-test, t = -1.12, df = 15, p = 0.28), indicating no deviation from Hardy-Weinberg expectations. In Treptower Park, Ho tended to be slightly lower than Hs, but this difference was not statistically significant (t = -1.97, df = 15, p = 0.067). In Lilienthal, however, Ho was significantly lower than Hs (t = -2.20, df = 15, p = 0.044), suggesting reduced heterozygosity possibly due to inbreeding or genetic isolation.
+
+### comparison between study sites
+```{r}
+hobs_long <- hobs_site %>%
+  mutate(Locus = rownames(hobs_site)) %>%
+  pivot_longer(cols = -Locus, names_to = "Study_site", values_to = "Ho")
+
+# He long
+hexp_long <- hexp_site %>%
+  mutate(Locus = rownames(hexp_site)) %>%
+  pivot_longer(cols = -Locus, names_to = "Study_site", values_to = "He")
+```
+
+Kruskal Wallis für H obs
+```{r}
+kruskal.test(Ho ~ Study_site, data = hobs_long)
+pairwise.wilcox.test(hobs_long$Ho, hobs_long$Study_site, p.adjust.method = "bonferroni")
+```
+No significant differences.
+
+Kruskal Wallis für H exp
+```{r}
+kruskal.test(He ~ Study_site, data = hexp_long)
+pairwise.wilcox.test(hexp_long$He, hexp_long$Study_site, p.adjust.method = "bonferroni")
+```
+
+Observed and expected heterozygosity did not differ significantly among the three study sites. Mean observed heterozygosity (Ho) was 0.60 in Rahnsdorf, 0.52 in Treptower Park, and 0.53 in Lilienthal (Kruskal-Wallis test: χ² = 1.06, df = 2, p = 0.59). Mean expected heterozygosity (He) was 0.64, 0.56, and 0.53, respectively (χ² = 0.54, df = 2, p = 0.76), indicating comparable levels of genetic diversity across populations.
+
+## Multilocus heterozygosity (MLH)
+```{r}
+df <- squirrel_genind_df
+
+# ID from rows
+df$ID <- seq_len(nrow(df))
+
+# locus names
+loci <- setdiff(names(df), c("pop", "ID"))
+
+# 2 columns per loci, 1 for each allel
+split_locus <- function(x) {
+  data.frame(allele1 = substr(x, 1, 3),
+             allele2 = substr(x, 4, 6))
+}
+
+# use for all loci
+allele_df_list <- lapply(loci, function(locus) {
+  tmp <- split_locus(df[[locus]])
+  colnames(tmp) <- paste0(locus, c("_1", "_2"))
+  tmp
+})
+
+# create dataframe
+genotypes_split <- bind_cols(df["ID"], df["pop"], do.call(bind_cols, allele_df_list))
+genotypes_split <- genotypes_split %>%
+  select(-ID, -pop)
+
+# show result
+str(genotypes_split)
+genotypes_split
+```
+Convert the datafram into the desired format for inbreedR
+```{r}
+genotypes_squirrels <- convert_raw(genotypes_split)
+check_data(genotypes_squirrels)
+
+```
+Calculate multilocus heterozygosity
+```{r}
+MLH_sq <- sMLH(genotypes_squirrels)
+MLH_sq
+
+MLH_sq <- as.data.frame(MLH_sq) %>%
+  rownames_to_column(var = "ID")
+
+# MLH_site <- MLH_sq %>%
+#   left_join()
+```
+
+```{r}
+summary(MLH_sq$MLH_sq)
+```
+
+
+## Counts of homo- and heterozygosity
+How many individuals are homo- or heterozygous per Locus?
+
+Transform rownames to column
+```{r}
+squirrel_sites_ms <- squirrel_sites_hierf %>% 
+  rownames_to_column(var = "ID") #%>% 
+  #mutate(ID = as.numeric(ID))
+```
+
+Put the table into a long format (transform)
+```{r}
+squirrel_geno_long <- squirrel_sites_ms %>%
+  pivot_longer(
+    cols = -c(ID, pop), # everything except ID and population (= Study site) are microsatellites
+    names_to = "Locus", 
+    values_to = "Alleles"
+  )
+squirrel_geno_long
+```
+
+Split Loci in 2 alleles, each with 3 digits
+```{r}
+squirrel_geno_long <- squirrel_geno_long %>%
+  mutate(
+    Allele1 = str_sub(Alleles, 1, 3),
+    Allele2 = str_sub(Alleles, 4, 6)
+  )
+squirrel_geno_long
+```
+
+Determination of homozygosity and heterozygosity
+```{r}
+squirrel_geno_long <- squirrel_geno_long %>%
+  mutate(HomoHetero = if_else(Allele1 == Allele2, "homozygous", "heterozygous"))
+squirrel_geno_long
+```
+Look at the results
+```{r}
+squirrel_geno_counts <- squirrel_geno_long %>%
+  count(Locus, HomoHetero) %>% drop_na()
+
+squirrel_geno_site <- squirrel_geno_long %>%
+  count(pop, Locus, HomoHetero) %>% drop_na() 
+
+squirrel_geno_site$pop <- fct_relevel(squirrel_geno_site$pop, "Rahnsdorf", "Lilienthal", "Treptower_Park")
+fct_relevel(squirrel_geno_site$pop)
+```
+```{r}
+squirrel_geno_counts
+squirrel_geno_site
+```
+```{r}
+hetero_prop <- squirrel_geno_site %>%
+  group_by(pop, Locus) %>%                    # pro Population und Locus
+  mutate(total_individuals = sum(n),          # Gesamtzahl der untersuchten Individuen
+         prop_hetero = n / total_individuals) #%>%  # proportion heterozygous
+  #filter(HomoHetero == "heterozygous") %>%   # nur Heterozygote behalten
+  #select(pop, Locus, prop_hetero)
+```
+
+```{r}
+hetero_prop %>%
+  group_by(pop) %>% 
+  filter(HomoHetero == "heterozygous") %>% # nur Heterozygote behalten
+  select(pop, Locus, prop_hetero) %>%
+  summarise(mean_prop_hetero = mean(prop_hetero),
+            sd_prop_hetero = sd(prop_hetero))
+```
+
+
+Plot it
+```{r}
+# # All together
+# ggplot(squirrel_geno_counts, aes(x = Locus, y = n, fill = HomoHetero)) +
+#   geom_col(position = "dodge") +
+#   scale_y_continuous(
+#     limits = c(0, 110),
+#     breaks = seq(0, 110, by = 55),
+#     expand = c(.004, .001)) +
+#   labs(
+#     x = "Locus",
+#     y = "N individuals",
+#     fill = ""
+#   ) +
+#   # theme_minimal(base_size = 13) +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),
+#      legend.position = "top"
+#    )
+
+# Per study site
+ggplot(squirrel_geno_site, aes(x = Locus, y = n, fill = HomoHetero)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(
+    limits = c(0, 60),
+    breaks = seq(0, 60, by = 30),
+    expand = c(.004, .001)) +
+  facet_wrap(~pop, nrow = 3) +
+  labs(
+    x = "Locus",
+    y = "N individuals",
+    fill = ""
+  ) +
+  #theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top",
+    strip.background = element_rect(fill = "grey95", color = NA)
+  )
+
+# Proportion
+ggplot(hetero_prop, aes(x = Locus, y = prop_hetero, fill = HomoHetero)) +
+  geom_col(position = "dodge") +
+  # scale_y_continuous(
+  #   limits = c(0, 60),
+  #   breaks = seq(0, 60, by = 30),
+  #   expand = c(.004, .001)) +
+  facet_wrap(~pop, nrow = 3) +
+  labs(
+    x = "Locus",
+    y = "N individuals",
+    fill = ""
+  ) +
+  #theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "top",
+    strip.background = element_rect(fill = "grey95", color = NA)
+  )
+```
+
+
+# Effective number of alleles (Ae)
+```{r}
+#Ae <- 1 / (1 - He) #(oder Hexp_all)
+
+Ae_sites <- 1 / (1 - hexp_site)
+
+# Optional: Mittelwert und SD pro Population
+Ae_mean <- colMeans(Ae_sites, na.rm = TRUE)
+Ae_sd <- apply(Ae_sites, 2, sd, na.rm = TRUE)
+
+Ae_summary <- data.frame(
+  population = colnames(Ae_sites),
+  Ae_mean = round(Ae_mean, 2),
+  Ae_sd = round(Ae_sd, 2)
+)
+
+Ae_sites
+Ae_summary
+```
+
+Summary of effective number of alleles (Ae) per population
+Rahnsdorf: moderate to high genetic diversity, some loci highly variable (Ae_mean = 3.33, sd = 1.77)
+Treptower_Park: similar mean Ae (3.09), but higher variation among loci (sd = 2.06)
+Lilienthal: lowest diversity (Ae_mean = 2.87), relatively uniform across loci (sd = 1.13)
+Interpretation: Lilienthal might be more genetically isolated or show inbreeding, while Rahnsdorf and Treptower_Park maintain higher genetic diversity.
+
+The effective number of alleles (Ae) differed slightly among populations. Rahnsdorf exhibited the highest mean Ae per locus (Ae = 3.33 ± 1.77), indicating relatively high genetic diversity with considerable variation among loci. Treptower Park had a similar mean Ae (Ae = 3.09 ± 2.06) but with higher locus-to-locus variation. Lilienthal showed the lowest mean Ae (Ae = 2.87 ± 1.13), reflecting lower overall genetic diversity that was relatively consistent across loci, suggesting possible genetic isolation or inbreeding.
+
+## test for significant differences
+change format of the table
+```{r}
+Ae_pivot <- Ae_sites %>%
+  rownames_to_column(var = "Locus") %>%
+  pivot_longer(cols = -Locus, names_to = "Study_site", values_to = "Ae")
+
+# Ae_pivot <- Ae_pivot %>%
+#   unite("Locus_site", c(Locus, Study_site), remove = F)
+```
+
+Kruskal Wallis 
+```{r}
+kruskal.test(Ae ~ Study_site, data = Ae_pivot)
+pairwise.wilcox.test(Ae_pivot$Ae, Ae_pivot$Study_site, p.adjust.method = "bonferroni")
+```
+```{r}
+modAe <- lme4::glmer(formula = Ae ~ Study_site + (1|Locus), 
+            data = Ae_pivot, 
+            family = "gaussian")
+summary(modAe)
+```
+
+# Individual inbreeding coefficient F
+Inbreeding refers to an excess of homozygosity in a given individual due to the mating of
+genetically related parents.
+Inbreeding can be associated to a loss of fitness leading to ”inbreeding depression”.
+
+A lower HO than HE suggests inbreeding, which reduces heterozygosity
+
+## All together
+```{r}
+# mean inbreeding for each individual
+Fsamp_all <- inbreeding(squirrel_genind, res.type = "sample")
+# Fsamp_all[[1]]
+# class(Fsamp_all)
+head(names(Fsamp_all))
+head(Fsamp_all[[1]],20)
+# Fsamp_all is a list of values sampled from the likelihood distribution of each individual; 
+# compute means for all individuals
+Fmean <- sapply(Fsamp_all, mean)
+Fmean
+```
+
+```{r}
+hist(Fmean, 
+     col = "orange", 
+     xlab = "mean value of F",
+     main = "Distribution of mean F across individuals")
+```
+
+
+```{r}
+## estimate inbreeding - return maximum likelihood estimates
+Fest <- inbreeding(squirrel_genind, res.type = "estimate")
+mostInbred <- which.max(Fest)
+# plot(Fdens[[mostInbred]], ylab = "Density", xlab = "F",
+#      main = paste("Probability density of F values\nfor", names(mostInbred)))
+# abline(v = Fest[mostInbred], col = "red", lty = 2)
+# legend("topright", legend = "MLE", col = "red", lty = 2)
+
+## note that estimates and average samples are likely to be different.
+plot(Fest, ylab = "F", col = "blue",
+     main = "comparison of MLE and average sample estimates of F")
+points(Fmean, pch = 2, col = "red")
+arrows(x0 = 1:length(Fest), y0 = Fest, 
+       y1 = Fmean, x1 = 1:length(Fest), length = 0.125)
+legend("topleft", legend = c("estimate", "sample"), col = c("blue", "red"),
+       pch = c(1, 2), title = "res.type")
+```
+
+Look into individuals with high inbreeding 
+```{r}
+which(Fmean>0.4)
+```
+
+## Study sites
+```{r}
+# mean inbreeding for each individual
+Fsamp_Rahn <- inbreeding(Rahn_pop, res.type = "sample")
+Fsamp_Lilie <- inbreeding(Lilie_pop, res.type = "sample")
+Fsamp_Treptow <- inbreeding(Treptow_pop, res.type = "sample")
+# Fsamp_Rahn[[1]]
+# class(Fsamp_Rahn)
+head(names(Fsamp_Rahn))
+head(Fsamp_Rahn[[1]],20)
+# Fsamp_Rahn is a list of values sampled from the likelihood distribution of each individual; 
+# compute means for all individuals
+Fmean_Rahn <- sapply(Fsamp_Rahn, mean) 
+Fmean_Lilie <- sapply(Fsamp_Lilie, mean)
+Fmean_Treptow <- sapply(Fsamp_Treptow, mean)
+#Fmean_Rahn
+```
+
+
+Mean individual heteroyzygosities
+```{r}
+mean(Fmean_Rahn)
+mean(Fmean_Lilie)
+mean(Fmean_Treptow)
+```
+
+standard deviations
+```{r}
+sd(Fmean_Rahn)
+sd(Fmean_Lilie)
+sd(Fmean_Treptow)
+```
+
+```{r}
+F_df <- bind_rows(
+  tibble(ID = names(Fmean_Rahn), F = Fmean_Rahn, Site = "Rahnsdorf"),
+  tibble(ID = names(Fmean_Lilie), F = Fmean_Lilie, Site = "Lilienthal"),
+  tibble(ID = names(Fmean_Treptow), F = Fmean_Treptow, Site = "Treptower_Park")
+) 
+
+F_df <- F_df %>%
+  mutate(Site = factor(Site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
+levels(F_df$Site)
+```
+
+Plot
+```{r}
+hist(Fmean, 
+     col = "orange", 
+     xlab = "mean value of F",
+     main = "Distribution of mean F across all individuals",
+     ylim = c(0,30),
+     xlim = c(0,1.0))
+
+hist(Fmean_Rahn, 
+     col = "orange", 
+     xlab = "mean value of F",
+     main = "Distribution of mean F across individuals in Rahnsdorf",
+     ylim = c(0,30),
+     xlim = c(0,1.0))
+
+hist(Fmean_Lilie, 
+     col = "orange", 
+     xlab = "mean value of F",
+     main = "Distribution of mean F across individuals in Lilienthal",
+     ylim = c(0,30),
+     xlim = c(0,1.0))
+
+hist(Fmean_Treptow, 
+     col = "orange", 
+     xlab = "mean value of F",
+     main = "Distribution of mean F across individuals in Treptower Park",
+     ylim = c(0,30),
+     xlim = c(0,1.0))
+```
+
+```{r}
+ggplot(F_df, aes(x = F)) +
+  geom_histogram(binwidth = 0.05, fill = "steelblue", color = "black") 
+
+ggplot(F_df, aes(x = F)) +
+  geom_histogram(binwidth = 0.05, fill = "steelblue", color = "black") +
+  facet_wrap(~ Site)
+```
+
+```{r}
+ggplot(F_df, aes(x = Site, y = F, fill = Site)) +
+  geom_boxplot()
+```
+```{r}
+ggplot(F_df, aes(x = ID, y = F)) +
+  geom_bar(stat = 'identity', fill = "steelblue") + 
+  #geom_histogram(binwidth = 0.05, fill = "steelblue", color = "black") +
+  facet_wrap(~ Site, scales = "free_x")
+```
+
+
+# Inbreeding coefficient (FIS) per study site
+
+Per population: 
+FIS = Inbreeding coefficient, measures the deviation from the HWE within a subpopulation
+F_IS > 0 = More inbreeding than expected, deficit of heterozgotes
+F_IS < 0 = More heterozygotes than expected
+
+Per individual: 
+The inbreeding coefficient F is defined as the probability that at a given locus, two
+identical alleles have been inherited from a common ancestor and is calculated after Garris et al. 2010.
+
+## Study sites
+### Per population
+```{r}
+# FIS per locus (rows = loci, cols = populations)
+#fis_mat <- as.data.frame(stats_sites$Fis) 
+fis_mat <- stats_sites$Fis %>% as.data.frame() %>% round(digits = 4)
+
+# Look at it
+head(fis_mat)
+#head(fis_mat2)
+
+# using your Ho and Hs data.frames
+fis_from_H <- 1 - (hobs_site / hexp_site)
+fis_from_H <- fis_from_H %>% round(digits = 4) 
+
+# Vorsicht: Division durch 0 → NA
+head(fis_from_H)
+```
+
+Comparison of the different ways to calculate FIS
+```{r}
+all.equal(target = fis_mat, current = fis_from_H, tolerance = 1e-6)  # evtl TRUE oder mit kleinen numerischen Unterschieden
+```
+Summary table 
+```{r}
+# Mean FIS per population
+fis_mean <- colMeans(fis_mat, na.rm = TRUE)
+fis_mean2 <- apply(fis_mat, 2, mean, na.rm = TRUE)
+
+# SD per population (does not make sense)
+fis_sd <- apply(fis_mat, 2, sd, na.rm = TRUE)
+# Summary table
+fis_summary <- data.frame(
+  population = colnames(fis_mat),
+  FIS_mean = round(fis_mean, 2),
+  FIS_mean2 = round(fis_mean2, 2),
+  FIS_sd = round(fis_sd, 2)
+)
+fis_summary
+```
+
+Bootstrap über Loci: Konfidenzintervalle für mittleres FIS (robuster)
+```{r}
+#set.seed(42)
+nboot <- 1000
+pop_names <- colnames(fis_mat)
+boots <- matrix(NA, nrow = nboot, ncol = length(pop_names))
+colnames(boots) <- pop_names
+n_loci <- nrow(fis_mat)
+
+for (i in 1:nboot) {
+  # sample loci with replacement
+  idx <- sample(1:n_loci, size = n_loci, replace = TRUE)
+  boot_mean <- colMeans(fis_mat[idx, , drop = FALSE], na.rm = TRUE)
+  boots[i, ] <- boot_mean
+}
+
+# compute 95% CI per population
+ci_lower <- apply(boots, 2, function(x) quantile(x, 0.025, na.rm = TRUE))
+ci_upper <- apply(boots, 2, function(x) quantile(x, 0.975, na.rm = TRUE))
+
+fis_boot_summary <- data.frame(
+  population = pop_names,
+  FIS_mean = round(colMeans(boots, na.rm = TRUE), 2),
+  CI_lower = round(ci_lower, 2),
+  CI_upper = round(ci_upper, 2)
+)
+fis_boot_summary
+```
+
+Estimated FIS values indicated low to moderate heterozygote deficits across populations. In Rahnsdorf, mean FIS was 0.05 (95% CI: −0.03–0.13), with a confidence interval overlapping zero, suggesting no significant deviation from Hardy–Weinberg equilibrium. Treptower Park showed a higher mean FIS of 0.09 (95% CI: 0.02–0.18), and Lilienthal had the highest value (FIS = 0.11, 95% CI: 0.03–0.19); in both cases the confidence intervals did not include zero, indicating significant positive FIS and thus heterozygote deficits. Overall, FIS increased slightly along the gradient, which could reflect population substructure, reduced gene flow, or mild inbreeding in more isolated areas.
+
+```{r}
+fis_summary_plot <- fis_summary %>%
+  mutate(
+    population = recode(
+      population,
+      Rahnsdorf = "Woodland area",
+      Lilienthal = "Cemetery",
+      Treptower_Park = "Urban park"
+    ),
+    population = factor(
+      population,
+      levels = c("Woodland area", "Cemetery", "Urban park")
+    )
+  )
+
+ggplot(fis_summary_plot, aes(x = population, y = FIS_mean, fill = population)) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = sprintf("%.02f", FIS_mean)),
+    vjust = -0.6,
+    size = 4
+  ) +
+  scale_y_continuous(
+    limits = c(0, 0.15),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  scale_fill_manual(values = c("Urban park" = "#8B2F1D", 
+                               "Cemetery" = "#F0A202", 
+                               "Woodland area" = "#006D6F")) +
+  labs(
+    x = NULL,
+    y = expression(F[IS]),
+    title = "Low to moderate subpopulation inbreeding across sites"
+  ) +
+  theme_classic(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    axis.text.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    legend.position = "none"
+  )
+
+
+
+# ggsave(filename = here::here("plots","genetics", "FIS_20260204.png"),
+#        # width = 1650*1.25,
+#        # height = 1200,
+#        # units = "px",
+#        dpi = 300)
+
+```
+
+
+## test for significant differences
+```{r}
+FIS_pivot <- fis_mat %>%
+  rownames_to_column(var = "Locus") %>%
+  pivot_longer(cols = -Locus, names_to = "Study_site", values_to = "FIS")
+```
+
+Kruskal Wallis 
+```{r}
+kruskal.test(FIS ~ Study_site, data = FIS_pivot)
+pairwise.wilcox.test(FIS_pivot$FIS, FIS_pivot$Study_site, p.adjust.method = "bonferroni")
+```
+
+# Combine inbreeding data and MLH data
+```{r}
+genetic_indices <- F_df %>%
+  left_join(y = MLH_sq, by = "ID") %>%
+  mutate(ID = str_replace_all(ID, pattern = "\\*", replacement = ""), 
+         ID = as.numeric(ID))
+
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>%
+  rownames_to_column(.data = , var = "ID") %>%
+  mutate(ID = as.numeric(ID))
+
+
+genetic_indices_ID <- genetic_indices %>% 
+  left_join(y = gen_squirrels_135_IDs, by = "ID")
+```
+
+```{r}
+table(genetic_indices_ID$Study_site, genetic_indices_ID$Site)
+```
+```{r}
+genetic_indices_ID
+```
+
+
+## comparison between populations
+### sMLH
+Mean per group
+```{r}
+genetic_indices_ID %>%
+  group_by(Study_site) %>%
+  dplyr::summarise(mean_sMLH = mean(MLH_sq), 
+                   sd_sMLH = sd(MLH_sq), 
+                   mean_F = mean(F),
+                   sd_F = sd(F))
+```
+
+how is it distributed
+```{r}
+qqnorm(genetic_indices_ID$MLH_sq)
+qqline(genetic_indices_ID$MLH_sq)
+```
+
+Kruskal-Wallis-Test
+```{r}
+kruskal.test(MLH_sq ~ Study_site, data = genetic_indices_ID)
+pairwise.wilcox.test(x = genetic_indices_ID$MLH_sq, g = genetic_indices_ID$Study_site, 
+                     p.adjust = "bonferroni")
+```
+Post-Hoc-Test for comparison between the study sites
+```{r}
+#library(FSA)   # enthält dunnTest
+
+dunnTest(MLH_sq ~ Study_site,
+         data = genetic_indices_ID,
+         method = "bonferroni")
+
+#library(rstatix)
+
+dunn_test(MLH_sq ~ Study_site,
+         data = genetic_indices_ID, 
+          p.adjust.method = "bonferroni")
+```
+
+We tested for differences in standardized multilocus heterozygosity (sMLH) among the three study sites using a Kruskal–Wallis test (χ² = 6.55, df = 2, p = 0.038).
+Post-hoc Dunn tests with Benjamini–Hochberg correction revealed that squirrels from Treptower Park had significantly higher sMLH compared to Rahnsdorf (adj. p = 0.032), whereas comparisons involving Lilienthal were not significant (all adj. p > 0.05).
+
+### inbreeding
+how is it distributed
+```{r}
+qqnorm(genetic_indices_ID$F)
+qqline(genetic_indices_ID$F)
+```
+```{r}
+View(genetic_indices_ID)
+```
+
+```{r}
+mean_F <- genetic_indices_ID %>%
+  group_by(study_site_specific) %>%
+  summarise(mean_F = mean(F),
+            sd_F = sd(F))
+```
+
+
+Kruskal-Wallis-Test
+```{r}
+kruskal.test(F ~ Study_site, data = genetic_indices_ID)
+pairwise.wilcox.test(x = genetic_indices_ID$F, g = genetic_indices_ID$Study_site, 
+                     p.adjust = "bonferroni")
+```
+
+Post-Hoc-Test for comparison between the study sites
+```{r}
+#library(FSA) 
+
+dunnTest(F ~ Study_site,
+         data = genetic_indices_ID,
+         method = "bonferroni")
+
+#library(rstatix)
+
+dunn_test(F ~ Study_site,
+         data = genetic_indices_ID, 
+          p.adjust.method = "bonferroni")
+```
+
+The inbreeding coefficient F did not differ significantly among populations (Rahnsdorf: 0.197, Lilienthal: 0.239, Treptower Park: 0.222; Kruskal-Wallis p = 0.215), indicating no evidence of elevated inbreeding in any population.
+
+In contrast, standardized multilocus heterozygosity (sMLH) differed significantly between populations (Kruskal-Wallis p = 0.038), with a significant pairwise difference between Rahnsdorf and Treptower Park (Dunn test, Bonferroni-adjusted p = 0.032). Mean sMLH values were highest in Rahnsdorf (1.12), intermediate in Lilienthal (0.997), and lowest in Treptower Park (0.964).
+
+These results suggest that while inbreeding levels are generally low and similar across populations, subtle differences in individual genetic diversity exist, with the urban population (Treptower Park) exhibiting slightly lower heterozygosity compared to the rural population (Rahnsdorf).
+
+### Summary results
+Ho/He: no significant population-level differences.
+
+sMLH: significant differences at the individual level, Rahnsdorf highest.
+
+F: no significant differences; individual heterozygosity differences not solely due to inbreeding.
+
+
+Observed and expected heterozygosity (Ho and He) did not differ significantly among the three study sites (Ho: χ² = 1.06, p = 0.589; He: χ² = 0.54, p = 0.765), indicating similar genetic diversity at the population level. In contrast, standardized multilocus heterozygosity (sMLH) differed significantly between populations (Kruskal-Wallis χ² = 6.55, p = 0.038), with individuals from Rahnsdorf showing the highest average heterozygosity. Individual inbreeding coefficients (F) did not differ significantly among sites, suggesting that the observed differences in sMLH are not strongly driven by inbreeding.“
+
+
+# Save data
+```{r}
+# # All together
+# ## Genind
+# saveRDS(squirrel_genind,
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_genind_20251120.RDS"))
+# ## data frame
+# saveRDS(squirrel_genind_df,
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_genind_df_20251120.RDS"))
+# ## hierf
+# saveRDS(squirrel_all_hierf, 
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_hierf_20251120.RDS"))
+# 
+# # Per study site
+# ## genind
+# saveRDS(squirrel_genind_sites,
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_genind_sites_20251120.RDS"))
+# ## data frame
+# saveRDS(squirrel_genind_sites_df,
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_genind_sites_df_20251120.RDS"))
+# ## hierf
+# saveRDS(squirrel_sites_hierf, 
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_sites_hierf_20251120.RDS"))
+# # squirrel individual genetic indices
+# saveRDS(genetic_indices_ID, 
+#         file = here::here("output", "data-proc", "genetic-proc", "individual_genetics", 
+#                           "squirrel_genetic_indices_20251127.RDS"))
+```
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

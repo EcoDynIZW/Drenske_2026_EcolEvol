@@ -1,0 +1,489 @@
+---
+title: "Your Project: Data Preparation" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+library(sf)
+library(cowplot)
+library(d6berlin)
+library(extrafont)
+library(ggplot2)
+library(ggdist)
+library(grid)
+library(geodata)
+library(dplyr)
+library(osmdata)
+library(patchwork)
+library(ggspatial)
+library("rnaturalearth")
+library(svglite)
+library(tmap)
+library(viridis)
+```
+
+```{r message=FALSE, include=FALSE}
+# font_import()
+# loadfonts(device = "win")
+# fonts()
+```
+
+# Data
+
+```{r data}
+## To import tabular data (.csv, .txt, .xls etc.)
+traps_df <- vroom::vroom(file = here::here("data-raw", "cmr-raw", "Trap_locations_20250813.csv"), locale = vroom::locale(decimal_mark = ","))
+
+# geo data
+## impervious surface
+imperv <- rast(here::here("data-raw/geo-raw/imperviousness_berlin_copernicus_raster_10m_2018_3035/imperviousness_berlin_copernicus_raster_10m_2018_3035.tif"))
+
+## water bodies
+water <- st_read(here::here("data-raw/geo-raw/waterbodies_Berlin_25833.gpkg")) %>% 
+  st_transform(crs = 3035) %>% 
+  st_union()
+
+## berlin border
+berlin <- st_read(here::here("data-raw/geo-raw/berlin_city_border_25833.gpkg")) %>% 
+  st_transform(crs = 3035) %>% 
+  st_union()
+```
+
+Labeller for study sites
+```{r}
+# Remove the underscore in the name of the study site without changing the factor levels
+Study_site_names <- as_labeller(c("Rahnsdorf" = "woodland area", "Treptower_Park" = "urban park", "Lilienthal" = "cemetery"))
+```
+
+# Format data
+Delete columns
+```{r}
+traps_df <- traps_df %>%
+  select(Study_site, Trap_nr, X, Y)
+```
+
+```{r}
+traps <- st_as_sf(traps_df,
+                  coords = c("X", "Y"),
+                  crs = 4326) # WGS84
+traps_3035 <- st_transform(traps, 3035)
+
+```
+
+# Berlin Map
+```{r}
+imperv_250 <- aggregate(imperv, fact = 25, fun = mean, na.rm = TRUE)
+
+# get in data frame format
+imperv250_df <- as.data.frame(imperv_250, xy = TRUE)
+colnames(imperv250_df)[3] <- "imperv"
+
+imperv_df <- as.data.frame(imperv, xy = TRUE)
+colnames(imperv_df)[3] <- "imperv"
+
+no_arrow_style_b <- north_arrow_orienteering(
+  line_width = 1,
+  line_col = "black",
+  fill = c("black", "black"),
+  text_col = "black",
+  text_family = "",
+  text_face = NULL,
+  text_size = 10,
+  text_angle = 0
+)
+```
+
+```{r}
+# ggplot() +
+#   geom_raster(data = imperv_df, aes(x = x, y = y, fill = imperv))
+# 
+# ggplot() +
+#   geom_raster(data = imperv250_df, aes(x = x, y = y, fill = imperv))
+```
+
+
+```{r}
+berlin_map <- 
+  ggplot() +
+  geom_raster(data = imperv_df, aes(x = x, y = y, fill = imperv)) +
+  scale_fill_viridis(option = "rocket", na.value = NA, direction = -1,
+                     #begin = 0.2, 
+                     end = 0.9, 
+                     alpha = 0.3,
+                     name = "Imperviousness") +
+  geom_sf(data = water, fill = "lightblue3", colour = "transparent") + 
+  geom_sf(data = traps_3035, size = 4, color = "black") + # aes(shape = Study_site), 
+  geom_sf(data = berlin, colour = "grey40", lwd = 0.7, fill = NA) +
+  annotation_north_arrow(which_north = "true", location = "bl",
+                         pad_x = unit(0.3, "cm"), pad_y = unit(0.7, "cm"),
+                         height = unit(1, "cm"),
+                         width = unit(0.6, "cm"), style = no_arrow_style_b) +
+  annotation_scale(text_cex = 1.5) +
+scale_x_continuous(breaks = seq(13.1, 13.7, by = 0.3)) +
+scale_y_continuous(breaks = seq(52.35, 52.70, by = 0.15)) +
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.title = element_blank(),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    axis.text = element_text(size = 18),
+    legend.text = element_text(size = 12), 
+    legend.title = element_text(size = 14)
+   ) #+ 
+  # #scale_x_discrete(limits=c("2", "0.5", "1")) + 
+  # scale_shape_discrete(name = "Study site", 
+  #                      limits = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), 
+  #                      labels = c("woodland area", "cemetery", "urban park")) #
+
+berlin_map
+```
+
+## Map of Europe
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+europe <- world %>% 
+  filter(continent  == "Europe")
+
+europe_crop <- europe %>% 
+   st_make_valid() %>% 
+    st_crop(xmin = -15, ymin = 25, xmax = 30, ymax = 55) # xmin = -25, ymin = 25, xmax = 50, ymax = 70
+
+# europe_crop2 <- europe %>% 
+#    st_make_valid() %>% 
+#     st_crop(xmin = -25, ymin = 25, xmax = 50, ymax = 70) # xmin = -25, ymin = 25, xmax = 50, ymax = 70
+
+centroid_berlin <- berlin %>% 
+  st_transform(crs = 4326) %>% 
+  st_centroid()
+```
+
+
+```{r }
+# fig.width = 9, fig.height = 6
+  
+eu_map <- 
+  ggplot() +
+  geom_sf(data = europe_crop, col = "black", fill = "grey90") +
+  geom_sf(data = centroid_berlin, size = 6, pch = 22, linewidth = 3, fill = "red", col = "red") +
+  geom_sf(data = centroid_berlin, col = "red", size = 4, pch = 22, fill = "grey90") +
+  coord_sf(xlim = c(-15,30.1), ylim = c(35,55.1), expand = FALSE) +
+  scale_x_continuous(breaks = seq(-10, 25, by = 15)) + 
+  scale_y_continuous(breaks = seq(40, 50, by = 10)) + 
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.title = element_blank(),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    #title = element_text(family = "Zilla Slab", size = 15), # axis
+    axis.text = element_text(size = 13)
+    ) # axis ticks
+
+eu_map
+#dev.off()
+```
+
+## both together
+```{r}
+#dev.off()
+
+plot.with.inset <-
+  ggdraw() +
+  draw_plot(berlin_map) +
+  draw_plot(eu_map, x = 0.512, y = .665, width = .29, height = .29)
+
+plot.with.inset
+
+# Save the plot
+ggsave(filename = here::here("plots", "maps",
+                             "Study_area_20250903.tiff"),
+         # width = 85,
+         # height = 85,
+         # units = "mm",
+       dpi = 300)
+```
+
+# Study sites
+
+```{r}
+tp_traps <- traps_3035 %>% filter(Study_site == "Treptower_Park")
+lilie_traps <- traps_3035 %>% filter(Study_site == "Lilienthal")
+rahn_traps <- traps_3035 %>% filter(Study_site == "Rahnsdorf")
+
+no_arrow_style <- north_arrow_orienteering(
+  line_width = 1,
+  line_col = "black",
+  fill = c("black", "black"),
+  text_col = "black",
+  text_family = "",
+  text_face = NULL,
+  text_size = 15,
+  text_angle = 0
+)
+```
+
+## Treptow
+```{r}
+# Prepare the map
+#bbox <- st_bbox(st_buffer(st_union(tp_traps), 500))
+
+center <- st_centroid(st_union(tp_traps))
+
+# feste Seitenlänge (z. B. 1000 m = 1 km Kante)
+half_size <- 800  # Hälfte der Seitenlänge
+
+bbox <- st_bbox(c(
+  xmin = st_coordinates(center)[1] - half_size,
+  xmax = st_coordinates(center)[1] + half_size,
+  ymin = st_coordinates(center)[2] - half_size,
+  ymax = st_coordinates(center)[2] + half_size
+), crs = st_crs(tp_traps))
+
+imperv_crop <- crop(imperv, ext(bbox$xmin, bbox$xmax, bbox$ymin, bbox$ymax))
+imperv_tp   <- as.data.frame(imperv_crop, xy = TRUE)
+names(imperv_tp)[3] <- "imperv"
+berlin_crop <- st_crop(berlin, bbox)
+water_crop <- st_crop(water, bbox)
+```
+
+
+```{r}
+# Plot it
+p_tp <- ggplot() +
+  geom_raster(data = imperv_tp, aes(x = x, y = y, fill = imperv)) +
+  scale_fill_viridis(option = "rocket", na.value = NA,
+                     direction = -1, end = 0.9,
+                     alpha = 0.3,
+                     name = "Imperviousness") +
+  geom_sf(data = water_crop, fill = "lightblue3", colour = NA) +
+  geom_sf(data = traps_3035 %>% filter(Study_site == "Treptower_Park"),
+          aes(shape = Study_site), size = 5, color = "black") +
+  geom_sf(data = berlin_crop, colour = "grey40", lwd = 0.7, fill = NA) +
+  annotation_north_arrow(which_north = "true", location = "bl",
+                         pad_x = unit(0.8, "cm"), pad_y = unit(1.6, "cm"),
+                         height = unit(2.5, "cm"),
+                         width = unit(1.7, "cm"), style = no_arrow_style) +
+  annotation_scale(text_cex = 3, 
+                   pad_x = unit(0.8, "cm"),
+                   pad_y = unit(1.2, "cm"),) +
+  scale_x_continuous(breaks = seq(13.46 , 13.48 , by = 0.02)) +
+  scale_y_continuous(breaks = seq(52.48, 52.49, by = 0.01)) +
+  theme(
+    legend.position = "none", 
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.title = element_blank(),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    axis.text = element_text(size = 30)
+  )
+p_tp
+
+# # Save plot
+# ggsave(filename = here::here("plots", "maps",
+#                              "Treptow_20250903.tiff"),
+#        # width = 85,
+#        # height = 85,
+#        # units = "mm",
+#        dpi = 300)
+```
+
+## Lilie
+```{r}
+# Prepare the map
+#bbox <- st_bbox(st_buffer(st_union(lilie_traps), 500))
+
+center <- st_centroid(st_union(lilie_traps))
+
+# feste Seitenlänge (z. B. 1000 m = 1 km Kante)
+half_size <- 800  # Hälfte der Seitenlänge
+
+bbox <- st_bbox(c(
+  xmin = st_coordinates(center)[1] - half_size,
+  xmax = st_coordinates(center)[1] + half_size,
+  ymin = st_coordinates(center)[2] - half_size,
+  ymax = st_coordinates(center)[2] + half_size
+), crs = st_crs(lilie_traps))
+
+imperv_crop <- crop(imperv, ext(bbox$xmin, bbox$xmax, bbox$ymin, bbox$ymax))
+imperv_tp   <- as.data.frame(imperv_crop, xy = TRUE)
+names(imperv_tp)[3] <- "imperv"
+berlin_crop <- st_crop(berlin, bbox)
+water_crop <- st_crop(water, bbox)
+```
+
+
+```{r}
+# Plot it
+p_lilie <- ggplot() +
+  geom_raster(data = imperv_tp, aes(x = x, y = y, fill = imperv)) +
+  scale_fill_viridis(option = "rocket", na.value = NA,
+                     direction = -1, end = 0.9,
+                     alpha = 0.3,
+                     name = "Imperviousness") +
+  geom_sf(data = water_crop, fill = "lightblue3", colour = NA) +
+  geom_sf(data = traps_3035 %>% filter(Study_site == "Lilienthal"),
+          aes(shape = Study_site), size = 5, color = "black") +
+  geom_sf(data = berlin_crop, colour = "grey40", lwd = 0.7, fill = NA) +
+  annotation_north_arrow(which_north = "true", location = "bl",
+                         pad_x = unit(0.8, "cm"), pad_y = unit(1.6, "cm"),
+                         height = unit(2.5, "cm"),
+                         width = unit(1.7, "cm"), style = no_arrow_style) +
+  annotation_scale(text_cex = 3, 
+                   pad_x = unit(0.8, "cm"),
+                   pad_y = unit(1.2, "cm"),) +
+  scale_x_continuous(breaks = seq(13.40 , 13.42 , by = 0.02)) +
+  scale_y_continuous(breaks = seq(52.48, 52.49, by = 0.01)) +
+  theme(
+    legend.position = "none", 
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.title = element_blank(),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    axis.text = element_text(size = 30)
+  )
+p_lilie
+
+# Save plot
+ggsave(filename = here::here("plots", "maps",
+                             "Lilie_20250814.tiff"),
+         # width = 85,
+         # height = 85,
+         # units = "mm",
+       dpi = 300)
+```
+
+## Rahnsdorf
+```{r}
+# Prepare the map
+#bbox <- st_bbox(st_buffer(st_union(rahn_traps), 500))
+center <- st_centroid(st_union(rahn_traps))
+
+# feste Seitenlänge (z. B. 1000 m = 1 km Kante)
+half_size <- 800  # Hälfte der Seitenlänge
+
+bbox <- st_bbox(c(
+  xmin = st_coordinates(center)[1] - half_size,
+  xmax = st_coordinates(center)[1] + half_size,
+  ymin = st_coordinates(center)[2] - half_size,
+  ymax = st_coordinates(center)[2] + half_size
+), crs = st_crs(rahn_traps))
+
+imperv_crop <- crop(imperv, ext(bbox$xmin, bbox$xmax, bbox$ymin, bbox$ymax))
+imperv_tp   <- as.data.frame(imperv_crop, xy = TRUE)
+names(imperv_tp)[3] <- "imperv"
+berlin_crop <- st_crop(berlin, bbox)
+water_crop <- st_crop(water, bbox)
+
+# Plot it
+p_rahn <- ggplot() +
+  geom_raster(data = imperv_tp, aes(x = x, y = y, fill = imperv)) +
+  scale_fill_viridis(option = "rocket", na.value = NA,
+                     direction = -1, end = 0.9,
+                     alpha = 0.3,
+                     name = "Imperviousness") +
+  geom_sf(data = water_crop, fill = "lightblue3", colour = NA) +
+  geom_sf(data = traps_3035 %>% filter(Study_site == "Rahnsdorf"),
+          aes(shape = Study_site), size = 5, color = "black") +
+  geom_sf(data = berlin_crop, colour = "grey40", lwd = 0.7, fill = NA) +
+  annotation_north_arrow(which_north = "true", location = "bl",
+                         pad_x = unit(0.8, "cm"), pad_y = unit(1.6, "cm"),
+                         height = unit(2.5, "cm"),
+                         width = unit(1.7, "cm"), style = no_arrow_style) +
+  annotation_scale(text_cex = 3, 
+                   pad_x = unit(0.8, "cm"),
+                   pad_y = unit(1.2, "cm"),) +
+  scale_x_continuous(breaks = seq(13.68 , 13.70 , by = 0.02)) +
+  scale_y_continuous(breaks = seq(52.45, 52.46, by = 0.01)) +
+  theme(
+    legend.position = "none", 
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.title = element_blank(),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    axis.text = element_text(size = 30)
+  )
+p_rahn
+
+# Save plot
+ggsave(filename = here::here("plots", "maps",
+                             "Rahnsdorf_20250814.tiff"),
+         # width = 85,
+         # height = 85,
+         # units = "mm",
+       dpi = 300)
+```
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

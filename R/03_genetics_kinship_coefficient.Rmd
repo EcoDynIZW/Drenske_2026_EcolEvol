@@ -1,0 +1,786 @@
+---
+title: "Squirrel genetics: Kinship analysis" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+library("related")
+library("tidyverse")
+```
+
+
+# Data
+
+```{r data}
+# Genetic and CMR data
+gen_squirrels_135_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
+                                                   "gen_squirrels_135_IDs_20250719.RDS"))
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>%
+  mutate(Study_site = factor(Study_site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
+
+# Kinship data
+# Txt files as tables
+kinship_squirrels_raw <- vroom::vroom(here::here("data-raw", "genetic-raw",
+                                                 "Squirrel_Genotypes_135_IDs_kinship_20250819.txt"),
+                                      col_names = FALSE)
+```
+
+## data preparation with study sites
+```{r}
+# Protocol nr as column and transform to numeric
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>% 
+  rownames_to_column(var = "protocol_nr_old") %>% 
+  mutate(protocol_nr_old = as.numeric(protocol_nr_old))
+
+# Compare the order of individuals in both datasets (X1 and protocol nr old are the sample ID)
+kinship_squirrels_raw$X1 == gen_squirrels_135_IDs$protocol_nr_old
+kinship_squirrels_raw$X1[c(1:30)]
+gen_squirrels_135_IDs$protocol_nr_old[c(1:30)]
+# Test object for a join of the sample ID and the study site
+test <- left_join(x = kinship_squirrels_raw[,1], y = gen_squirrels_135_IDs[, c(1,7)], by = join_by("X1" == "protocol_nr_old"))
+test
+
+# Use the first 2 letters of the study sites per sample
+prefix <- substr(gen_squirrels_135_IDs$Study_site, 1, 2)
+prefix
+# create a column for the combination of sample ID and study site
+kinship_squirrels_raw$X34 <- paste0(prefix, "_", kinship_squirrels_raw$X1)
+kinship_squirrels_raw[, c(1,34)]
+kinship_squirrels_raw <- left_join(x = kinship_squirrels_raw[], y = gen_squirrels_135_IDs[, c(1,7)], by = join_by("X1" == "protocol_nr_old"))
+# kinship_squirrels_raw$X1
+# kinship_squirrels_raw$X1 <- paste0(prefix, "_", kinship_squirrels_raw$X1)
+# kinship_squirrels_raw$X1
+```
+Split per study site
+
+```{r}
+kinship_wood_raw <- kinship_squirrels_raw %>% filter(Study_site == "Rahnsdorf") %>% select(-c(34,35))
+kinship_cemetery_raw <- kinship_squirrels_raw %>% filter(Study_site == "Lilienthal") %>% select(-c(34,35))
+kinship_park_raw <- kinship_squirrels_raw %>% filter(Study_site == "Treptower_Park") %>% select(-c(34,35))
+```
+
+## Save data
+```{r}
+# # Save this as data set with an ID including the study sites
+# vroom::vroom_write(x = kinship_squirrels_raw,
+#                    file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+#                                      "kinship_squirrels_study_site_20260210.txt"))
+# 
+# # woodland
+# vroom::vroom_write(x = kinship_wood_raw,
+#                    file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+#                                      "kinship_squirrels_woodland_20260210.txt"), 
+#                    col_names = F)
+# 
+# # cemetery
+# vroom::vroom_write(x = kinship_cemetery_raw,
+#                    file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+#                                      "kinship_squirrels_cemetery_20260210.txt"), 
+#                    col_names = F)
+# 
+# # urban park
+# vroom::vroom_write(x = kinship_park_raw,
+#                    file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+#                                      "kinship_squirrels_park_20260210.txt"), 
+#                    col_names = F)
+```
+
+# Data for analysis
+```{r}
+# Data for analysis as genotype data
+kinship_squirrels <- readgenotypedata(genotype.data = here::here("data-raw", "genetic-raw",
+                                                                 "Squirrel_Genotypes_135_IDs_kinship_20250819.txt"))
+
+# Woodland
+kinship_wood <- readgenotypedata(genotype.data = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+                                                            "kinship_squirrels_woodland_20260210.txt"))
+
+# Cemetery
+kinship_cemetery <- readgenotypedata(genotype.data = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+                                                            "kinship_squirrels_cemetery_20260210.txt"))
+
+# Urban park
+kinship_park <- readgenotypedata(genotype.data = here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+                                                            "kinship_squirrels_park_20260210.txt"))
+
+# kinship_site_squirrels <- readgenotypedata(genotype.data = here::here("output", "data-proc", "genetic-proc",
+#                                                                       "individual_genetics",
+#                                                                       "kinship_squirrels_study_site_20250819.txt"))
+
+# kinship_site_squirrels <- vroom::vroom(here::here("output", "data-proc", "genetic-proc", "individual_genetics",
+#                                                   "kinship_squirrels_study_site_20250819.txt"),
+#                                        col_names = FALSE)
+```
+
+
+# Kinship analysis
+## Test data
+Load data
+```{r}
+# data(simrel)
+# #---Read data into R---#
+# data(GenotypeData)
+# input <- readgenotypedata(GenotypeData)
+```
+
+Calculate relatedness 
+```{r}
+#---Calculate Relatedness---#
+#output <- coancestry(input$gdata, lynchrd = 2, quellergt = 2, wang = 2)
+```
+
+Look at the results
+```{r}
+# #---View Point Estimates---#
+# output$relatedness
+# 
+# #---View 95
+# output$relatedness.ci95
+```
+
+## Squirrels: All sites together
+Load data and check for NAs
+```{r}
+squirrel_gdata <- kinship_squirrels$gdata
+squirrel_gdata
+# rows = individuals, columns = ID, 2 alleles of 16 loci
+# table(squirrel_gdata$V1, useNA = "always") # allel 1 locus 1
+# table(squirrel_gdata$V33, useNA = "always") # allel 2 locus 16
+```
+
+
+Calculate relatedness
+```{r}
+#output <- coancestry(input$gdata, lynchrd = 2, quellergt = 2, wang = 2)
+related_output <- coancestry(genotype.data = kinship_squirrels$gdata, 
+                             error.rates = 0.01, 
+                             #wang = 2, 
+                             quellergt = 2,
+                             ci95.num.bootstrap = 500, #1st version with 1000 repetitions but now the session aborts every time with 1000
+                             rng.seed = 20200604
+                             )
+```
+
+Look at output
+```{r}
+relatedness <- related_output$relatedness
+# summary(relatedness$wang)
+summary(relatedness$quellergt)
+# table(relatedness$wang > 0.5)
+table(relatedness$quellergt > 0.5)
+# boxplot(relatedness$wang)
+boxplot(relatedness$quellergt)
+
+# wang_related <- relatedness %>% filter(wang >= 0.5)
+qg_related <- relatedness %>% filter(quellergt > 0.5)
+```
+
+
+```{r}
+# # Wang
+# table(wang_related$ind1.id)
+# table(wang_related$ind2.id)
+# 
+# all_ids_wang <- c(wang_related$ind1.id, wang_related$ind2.id)
+# id_counts_wang <- as.data.frame(table(all_ids_wang))
+# colnames(id_counts_wang) <- c("ID", "count")
+
+# Queller & Goodnight
+table(qg_related$ind1.id)
+table(qg_related$ind2.id)
+
+all_ids_qg <- c(qg_related$ind1.id, qg_related$ind2.id)
+id_counts_qg <- as.data.frame(table(all_ids_qg))
+colnames(id_counts_qg) <- c("ID", "count")
+```
+
+
+```{r}
+# ## Wang
+# wang_related$remove <- apply(wang_related, 1, function(row) {
+#   id1 <- row["ind1.id"]
+#   id2 <- row["ind2.id"]
+#   
+#   c1 <- id_counts_wang$count[id_counts_wang$ID == id1]
+#   c2 <- id_counts_wang$count[id_counts_wang$ID == id2]
+#   
+#   if (c1 > c2) {
+#     return(id1)
+#   } else if (c2 > c1) {
+#     return(id2)
+#   } else {
+#     # Falls beide gleich oft vorkommen -> alphabetisch die kleinere ID nehmen
+#     return(min(id1, id2))
+#   }
+# })
+# 
+# # Alle rauszunehmenden IDs
+# ids_to_remove_wang <- unique(wang_related$remove)
+# #ids_to_remove <- order(ids_to_remove, decreasing = FALSE)
+# ids_to_remove_wang
+# 
+
+## Queller & Goodnight
+qg_related$remove <- apply(qg_related, 1, function(row) {
+  id1 <- row["ind1.id"]
+  id2 <- row["ind2.id"]
+  
+  c1 <- id_counts_qg$count[id_counts_qg$ID == id1]
+  c2 <- id_counts_qg$count[id_counts_qg$ID == id2]
+  
+  if (c1 > c2) {
+    return(id1)
+  } else if (c2 > c1) {
+    return(id2)
+  } else {
+    # Falls beide gleich oft vorkommen -> alphabetisch die kleinere ID nehmen
+    return(min(id1, id2))
+  }
+})
+
+# Alle rauszunehmenden IDs
+ids_to_remove_qg <- unique(qg_related$remove)
+#ids_to_remove <- order(ids_to_remove, decreasing = FALSE)
+ids_to_remove_qg
+```
+
+
+### Remove IDs
+Who are the indivudals we have to remove?
+```{r}
+#gen_squirrels_135_IDs <- rownames_to_column(.data = gen_squirrels_135_IDs, var = "protocol_nr2") # Why???
+ids_remove_qg <- data.frame(protocol_nr_old = ids_to_remove_qg) %>% 
+  mutate(protocol_nr_old = as.numeric(protocol_nr_old))
+ids_remove <- left_join(x = ids_remove_qg, y = gen_squirrels_135_IDs, by = "protocol_nr_old")
+remove <- data.frame(ID = as.numeric(ids_to_remove_qg))
+```
+
+Order by study site, sex, season
+```{r}
+table(ids_remove$Study_site, useNA = "always")
+table(ids_remove$Study_site, ids_remove$Sex, useNA = "always")
+table(ids_remove$Season, useNA = "always")
+```
+
+calculate the percentage of individuals that has to be removed
+```{r}
+# noch anders anordnen
+table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
+#table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
+table(ids_remove$Study_site, ids_remove$Sex)
+```
+
+
+```{r}
+## Treptow
+# all together
+25/65
+# males
+15/30
+# females
+10/34
+
+## Lilienthal
+# all together
+15/50 
+# males
+8/25
+# females
+7/24
+
+## Rahnsdorf
+# all together
+2/20 
+# males
+2/12
+# no females were removed
+```
+
+Urban park (Treptow) 
+38% of all individuals from Treptow
+50% of the males
+29% of females
+
+Cemetery (Lilienthal)
+30% of all individuals from Treptow
+32% of the males
+29% of females
+
+Woodland area (Rahnsdorf)
+10% of all individuals from Treptow
+17% of the males
+0% of females
+
+## Woodland
+Load data and check for NAs
+```{r}
+wood_gdata <- kinship_wood$gdata#[-1, ]
+# rows = individuals, columns = ID, 2 alleles of 16 loci
+# table(squirrel_gdata$V1, useNA = "always") # allel 1 locus 1
+# table(squirrel_gdata$V33, useNA = "always") # allel 2 locus 16
+wood_gdata
+squirrel_gdata
+```
+
+
+Calculate relatedness
+```{r}
+#output <- coancestry(input$gdata, lynchrd = 2, quellergt = 2, wang = 2)
+related_wood_output <- coancestry(genotype.data = kinship_wood$gdata, #[-1, ], 
+                             error.rates = 0.01, 
+                             #wang = 2, 
+                             quellergt = 2,
+                             ci95.num.bootstrap = 500, #1st version with 1000 repetitions but now the session aborts every time with 1000
+                             rng.seed = 20200604
+                             )
+```
+
+Look at output
+```{r}
+relatedness_wood <- related_wood_output$relatedness
+# summary(relatedness$wang)
+summary(relatedness_wood$quellergt)
+# table(relatedness$wang > 0.5)
+table(relatedness_wood$quellergt > 0.5)
+# boxplot(relatedness$wang)
+boxplot(relatedness_wood$quellergt)
+
+# wang_related <- relatedness %>% filter(wang >= 0.5)
+qg_related_wood <- relatedness_wood %>% filter(quellergt > 0.5)
+qg_related_wood
+qg_related
+```
+
+
+```{r}
+# # Wang
+# table(wang_related$ind1.id)
+# table(wang_related$ind2.id)
+# 
+# all_ids_wang <- c(wang_related$ind1.id, wang_related$ind2.id)
+# id_counts_wang <- as.data.frame(table(all_ids_wang))
+# colnames(id_counts_wang) <- c("ID", "count")
+
+# Queller & Goodnight
+table(qg_related_wood$ind1.id)
+table(qg_related_wood$ind2.id)
+
+all_ids_qg_wood <- c(qg_related_wood$ind1.id, qg_related_wood$ind2.id)
+id_counts_qg_wood <- as.data.frame(table(all_ids_qg_wood))
+colnames(id_counts_qg_wood) <- c("ID", "count")
+```
+
+
+```{r}
+## Queller & Goodnight
+qg_related_wood$remove <- apply(qg_related_wood, 1, function(row) {
+  id1 <- row["ind1.id"]
+  id2 <- row["ind2.id"]
+  
+  c1 <- id_counts_qg_wood$count[id_counts_qg_wood$ID == id1]
+  c2 <- id_counts_qg_wood$count[id_counts_qg_wood$ID == id2]
+  
+  if (c1 > c2) {
+    return(id1)
+  } else if (c2 > c1) {
+    return(id2)
+  } else {
+    # Falls beide gleich oft vorkommen -> alphabetisch die kleinere ID nehmen
+    return(min(id1, id2))
+  }
+})
+
+# Alle rauszunehmenden IDs
+ids_to_remove_qg_wood <- unique(qg_related_wood$remove)
+#ids_to_remove <- order(ids_to_remove, decreasing = FALSE)
+ids_to_remove_qg_wood
+```
+### Remove IDs
+Who are the indivudals we have to remove?
+```{r}
+#gen_squirrels_135_IDs <- rownames_to_column(.data = gen_squirrels_135_IDs, var = "protocol_nr2") # Why???
+ids_remove_qg_wood <- data.frame(protocol_nr_old = ids_to_remove_qg_wood) %>% 
+  mutate(protocol_nr_old = as.numeric(protocol_nr_old))
+ids_remove_wood <- left_join(x = ids_remove_qg_wood, y = gen_squirrels_135_IDs, by = "protocol_nr_old")
+remove_wood <- data.frame(ID = as.numeric(ids_to_remove_qg_wood))
+```
+
+Order by study site, sex, season
+```{r}
+table(ids_remove_wood$Study_site, useNA = "always")
+table(ids_remove_wood$Sex, useNA = "always")
+table(ids_remove_wood$Season, useNA = "always")
+```
+
+calculate the percentage of individuals that has to be removed
+```{r}
+# noch anders anordnen
+table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
+#table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
+table(ids_remove_wood$Study_site, ids_remove_wood$Sex)
+```
+
+
+```{r}
+# all together
+2/20 
+# males
+2/12
+# females
+0/8
+```
+
+
+## Cemetery
+Load data and check for NAs
+```{r}
+cemetery_gdata <- kinship_cemetery$gdata#[-1, ]
+# rows = individuals, columns = ID, 2 alleles of 16 loci
+# table(squirrel_gdata$V1, useNA = "always") # allel 1 locus 1
+# table(squirrel_gdata$V33, useNA = "always") # allel 2 locus 16
+cemetery_gdata
+wood_gdata
+squirrel_gdata
+```
+
+
+Calculate relatedness
+```{r}
+#output <- coancestry(input$gdata, lynchrd = 2, quellergt = 2, wang = 2)
+related_cemetery_output <- coancestry(genotype.data = kinship_cemetery$gdata, #[-1, ], 
+                                      error.rates = 0.01, 
+                                      #wang = 2, 
+                                      quellergt = 2,
+                                      ci95.num.bootstrap = 500, #1st version with 1000 repetitions but now 
+                                      # the session aborts every time with 1000
+                                      rng.seed = 20200604
+)
+```
+
+Look at output
+```{r}
+relatedness_cemetery <- related_cemetery_output$relatedness
+# summary(relatedness$wang)
+summary(relatedness_cemetery$quellergt)
+# table(relatedness$wang > 0.5)
+table(relatedness_cemetery$quellergt > 0.5)
+# boxplot(relatedness$wang)
+boxplot(relatedness_cemetery$quellergt)
+
+# wang_related <- relatedness %>% filter(wang >= 0.5)
+qg_related_cemetery <- relatedness_cemetery %>% filter(quellergt > 0.5)
+qg_related_cemetery
+qg_related
+```
+
+
+```{r}
+# # Wang
+# table(wang_related$ind1.id)
+# table(wang_related$ind2.id)
+# 
+# all_ids_wang <- c(wang_related$ind1.id, wang_related$ind2.id)
+# id_counts_wang <- as.data.frame(table(all_ids_wang))
+# colnames(id_counts_wang) <- c("ID", "count")
+
+# Queller & Goodnight
+table(qg_related_cemetery$ind1.id)
+table(qg_related_cemetery$ind2.id)
+
+all_ids_qg_cemetery <- c(qg_related_cemetery$ind1.id, qg_related_cemetery$ind2.id)
+id_counts_qg_cemetery <- as.data.frame(table(all_ids_qg_cemetery))
+colnames(id_counts_qg_cemetery) <- c("ID", "count")
+```
+
+
+```{r}
+## Queller & Goodnight
+qg_related_cemetery$remove <- apply(qg_related_cemetery, 1, function(row) {
+  id1 <- row["ind1.id"]
+  id2 <- row["ind2.id"]
+  
+  c1 <- id_counts_qg_cemetery$count[id_counts_qg_cemetery$ID == id1]
+  c2 <- id_counts_qg_cemetery$count[id_counts_qg_cemetery$ID == id2]
+  
+  if (c1 > c2) {
+    return(id1)
+  } else if (c2 > c1) {
+    return(id2)
+  } else {
+    # Falls beide gleich oft vorkommen -> alphabetisch die kleinere ID nehmen
+    return(min(id1, id2))
+  }
+})
+
+# Alle rauszunehmenden IDs
+ids_to_remove_qg_cemetery <- unique(qg_related_cemetery$remove)
+#ids_to_remove <- order(ids_to_remove, decreasing = FALSE)
+ids_to_remove_qg_cemetery
+```
+### Remove IDs
+Who are the indivudals we have to remove?
+```{r}
+#gen_squirrels_135_IDs <- rownames_to_column(.data = gen_squirrels_135_IDs, var = "protocol_nr2") # Why???
+ids_remove_qg_cemetery <- data.frame(protocol_nr_old = ids_to_remove_qg_cemetery) %>% 
+  mutate(protocol_nr_old = as.numeric(protocol_nr_old))
+ids_remove_cemetery <- left_join(x = ids_remove_qg_cemetery, y = gen_squirrels_135_IDs, by = "protocol_nr_old")
+remove_cemetery <- data.frame(ID = as.numeric(ids_to_remove_qg_cemetery))
+```
+
+Order by study site, sex, season
+```{r}
+table(ids_remove_cemetery$Study_site, useNA = "always")
+table(ids_remove_cemetery$Sex, useNA = "always")
+table(ids_remove_cemetery$Season, useNA = "always")
+```
+
+calculate the percentage of individuals that has to be removed
+```{r}
+# noch anders anordnen
+table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
+#table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
+table(ids_remove_cemetery$Study_site, ids_remove_cemetery$Sex)
+```
+
+
+```{r}
+# all together
+12/50 
+# males
+7/25
+# females
+5/24
+```
+
+## Urban park
+Load data and check for NAs
+```{r}
+park_gdata <- kinship_park$gdata#[-1,]
+# rows = individuals, columns = ID, 2 alleles of 16 loci
+# table(squirrel_gdata$V1, useNA = "always") # allel 1 locus 1
+# table(squirrel_gdata$V33, useNA = "always") # allel 2 locus 16
+park_gdata
+squirrel_gdata
+```
+
+
+Calculate relatedness
+```{r}
+#output <- coancestry(input$gdata, lynchrd = 2, quellergt = 2, wang = 2)
+related_park_output <- coancestry(genotype.data = kinship_park$gdata,#[-1, ], 
+                             error.rates = 0.01, 
+                             #wang = 2, 
+                             quellergt = 2,
+                             ci95.num.bootstrap = 500, #1st version with 1000 repetitions but now the session aborts every time with 1000
+                             rng.seed = 20200604
+                             )
+```
+
+Look at output
+```{r}
+relatedness_park <- related_park_output$relatedness
+# summary(relatedness$wang)
+summary(relatedness_park$quellergt)
+# table(relatedness$wang > 0.5)
+table(relatedness_park$quellergt > 0.5)
+# boxplot(relatedness$wang)
+boxplot(relatedness_park$quellergt)
+
+# wang_related <- relatedness %>% filter(wang >= 0.5)
+qg_related_park <- relatedness_park %>% filter(quellergt > 0.5)
+qg_related_park
+qg_related
+```
+
+
+```{r}
+# # Wang
+# table(wang_related$ind1.id)
+# table(wang_related$ind2.id)
+# 
+# all_ids_wang <- c(wang_related$ind1.id, wang_related$ind2.id)
+# id_counts_wang <- as.data.frame(table(all_ids_wang))
+# colnames(id_counts_wang) <- c("ID", "count")
+
+# Queller & Goodnight
+table(qg_related_park$ind1.id)
+table(qg_related_park$ind2.id)
+
+all_ids_qg_park <- c(qg_related_park$ind1.id, qg_related_park$ind2.id)
+id_counts_qg_park <- as.data.frame(table(all_ids_qg_park))
+colnames(id_counts_qg_park) <- c("ID", "count")
+```
+
+
+```{r}
+## Queller & Goodnight
+qg_related_park$remove <- apply(qg_related_park, 1, function(row) {
+  id1 <- row["ind1.id"]
+  id2 <- row["ind2.id"]
+  
+  c1 <- id_counts_qg_park$count[id_counts_qg_park$ID == id1]
+  c2 <- id_counts_qg_park$count[id_counts_qg_park$ID == id2]
+  
+  if (c1 > c2) {
+    return(id1)
+  } else if (c2 > c1) {
+    return(id2)
+  } else {
+    # Falls beide gleich oft vorkommen -> alphabetisch die kleinere ID nehmen
+    return(min(id1, id2))
+  }
+})
+
+# Alle rauszunehmenden IDs
+ids_to_remove_qg_park <- unique(qg_related_park$remove)
+#ids_to_remove <- order(ids_to_remove, decreasing = FALSE)
+ids_to_remove_qg_park
+```
+### Remove IDs
+Who are the indivudals we have to remove?
+```{r}
+#gen_squirrels_135_IDs <- rownames_to_column(.data = gen_squirrels_135_IDs, var = "protocol_nr2") # Why???
+ids_remove_qg_park <- data.frame(protocol_nr_old = ids_to_remove_qg_park) %>% 
+  mutate(protocol_nr_old = as.numeric(protocol_nr_old))
+ids_remove_park <- left_join(x = ids_remove_qg_park, y = gen_squirrels_135_IDs, by = "protocol_nr_old")
+remove_park <- data.frame(ID = as.numeric(ids_to_remove_qg_park))
+```
+
+Order by study site, sex, season
+```{r}
+table(ids_remove_park$Study_site, useNA = "always")
+table(ids_remove_park$Sex, useNA = "always")
+table(ids_remove_park$Season, useNA = "always")
+```
+
+calculate the percentage of individuals that has to be removed
+```{r}
+# noch anders anordnen
+table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
+#table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
+table(ids_remove_park$Study_site, ids_remove_park$Sex)
+```
+
+
+```{r}
+# all together
+21/65 
+# males
+12/30
+# females
+9/34
+```
+
+###All sites
+```{r}
+ids_remove_qg_wood
+ids_remove_qg_cemetery
+ids_remove_qg_park
+
+2+12+21 # 35 IDs removed
+135-35 # 100 Tiere verbleiben
+```
+
+
+## Simulations
+```{r}
+kinship_sim <- familysim(freqs = kinship_squirrels$freqs, ninds = 100)
+output_sim <- coancestry(kinship_sim, quellergt = 2) #wang = 2
+simrel <- cleanuprvals(output_sim$relatedness, 100)
+relvalues <- simrel[, 6]
+
+head(output_sim$relatedness)
+head(simrel)
+#relvalues
+```
+
+
+```{r}
+label1 <- rep("PO", 100)
+label2 <- rep("Full", 100)
+label3 <- rep("Half", 100)
+label4 <- rep("Unrelated", 100)
+labels <- c( label1 , label2 , label3 , label4 )
+Relationship <- labels
+simdata <- as.data.frame(cbind(Relationship, relvalues))
+simdata$relvalues <- as.numeric(as.character(simdata$relvalues))
+```
+
+Boxplot and density plot
+```{r}
+qplot(as.factor(labels), relvalues, geom = "boxplot", ylab = "Relatedness Values", xlab = "Relatedness")
+qplot(relvalues, ..density.., data = simdata, geom = "density", colour = as.factor(Relationship), xlab = "Relatedness value", ylab = "Density") + 
+  theme(legend.position = "top") 
+```
+
+## Comparison between study sites
+```{r}
+# grouprel ( genotypes = reldata$gdata , estimatorname = " wang ", usedgroups = " all ",
+# iterations = 100)
+
+grouprel(genotypes = kinship_site_squirrels$gdata, estimatorname = "wang", usedgroups = "all",
+         iterations = 100)
+```
+
+# Next steps
+Remove the 42 individuals from the raw data that, according to this analysis, show a high degree of relatedness to other animals.
+
+This data set is used for analysis with STRUCTURE and all further analysis.
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

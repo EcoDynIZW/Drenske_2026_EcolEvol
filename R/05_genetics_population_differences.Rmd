@@ -1,0 +1,291 @@
+---
+title: "Squirrel genetics: Population differences" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+d6::simple_load(c("adegenet", 
+                  "hierfstat",
+                  "tidyverse", 
+                  "pegas",
+                  "poppr",
+                  "related",
+                  "strataG",
+                  "writexl"
+))
+```
+
+```{r}
+set.seed(20200604)
+```
+
+
+## Plot setup
+Set theme for ggplots
+```{r theme}
+theme_set(
+  theme(
+    legend.position = "none",
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 2),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    title = element_text(size = 20), # axis family = "Zilla Slab", family = "Roboto", 
+    axis.text = element_text(size = rel(1.4)))) # axis ticks, family = "Roboto", 
+```
+
+Labeller for study sites
+```{r}
+# Remove the underscore in the name of the study site without changing the factor levels
+Study_site_names <- as_labeller(c("Rahnsdorf" = "woodland area", "Treptower_Park" = "urban park", "Lilienthal" = "cemetery"))
+```
+
+# Data
+
+```{r data}
+# Genind
+squirrel_genind_sites <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_genind_sites_20251120.RDS"))
+# Hierf
+squirrel_sites_hierf <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "individual_genetics",  "squirrel_sites_hierf_20251120.RDS"))
+```
+
+
+# Fixation index (FST)
+FST = Fixation index. Genetic differentiation between subpopulations: measures how geentically different subpopulations are from the total population
+F_ST < 0.05 No genetic differentiation (populations are genetically identical), high gene flow
+F_ST 0.05-0.15 moderate differentiation
+F_ST = 1 Complete differentiation, no gene flow, isolated populations
+RST = analogous to FST, but accounts for the mutation process at microsatellite loci
+```{r}
+stats_sites <- basic.stats(squirrel_sites_hierf)
+stats_sites
+colMeans(stats_all$perloc, na.rm = TRUE)
+# Ho = observed heterozygosity
+# Hs = within population gene diversity (sometimes misleadingly called expected heterozygosity)
+# perloc = basic statistics per loci
+# overall = basic statistics averaged over loci
+
+# Basic statistics
+# Ho, Hs see above
+# Ht = overall gene diversity, total heterozygosity
+# Dst = amount of gene diversity (Ht - Hs)
+# Htp = (maybe expected heterozygosity when sample sizes are even)
+# Dstp = Proportional differentiation Dst/Ht
+# Fst = Inbreeding between populations
+# Fis = 1 - Ho/Hs = Inbreeding within a population
+# Dest = Jost's D
+```
+
+# Pairwise FST/Gst/Josts D
+```{r}
+#?pairwise.neifst
+pairwise.neifst(squirrel_sites_hierf)
+
+genet.dist(squirrel_sites_hierf, method = "Nei87") # same as above
+```
+
+```{r}
+pairwise.WCfst(dat = squirrel_sites_hierf,
+               diploid = TRUE) %>% round(digits = 2)
+pairwise.WCfst(dat = squirrel_genind_sites,
+               diploid = TRUE) %>% round(digits = 2) # same as above
+# > 0.05 = geringe, > 0.15 = mittlere, > 0.25 = starke Differenzierung
+
+# genet.dist(squirrel_sites_hierf, method = "WC84") # same as above
+```
+
+
+
+```{r}
+fst_boots <- boot.ppfst(dat = squirrel_genind_sites,
+                        nboot = 5000,
+                        quant = c(0.025,0.975),
+                        diploid = TRUE)  
+fst_boots
+fst_boots3 <- fst_boots
+fst_boots3$ll <- round(fst_boots3$ll, 2)
+fst_boots3$ul <- round(fst_boots3$ul, 2)
+fst_boots3
+
+fst_boots2 <- boot.ppfst(dat = squirrel_sites_hierf,
+                        nboot = 5000,
+                        quant = c(0.025,0.975),
+                        diploid = TRUE)  
+fst_boots2
+```
+
+Pairwise genetic differentiation (Weir & Cockerham’s FST) ranged from 0.06 to 0.08 across study sites. Bootstrapped 95% confidence intervals did not include zero for any population pair (Rahnsdorf–Treptower Park: FST = 0.07, CI = 0.05–0.09; Rahnsdorf–Lilienthal: FST = 0.08, CI = 0.06–0.10; Treptower Park–Lilienthal: FST = 0.06, CI = 0.04–0.08), indicating significant differentiation among all populations.
+
+# FIT
+FIT = Total inbreeding coefficient, combines effects of FIS and FST
+```{r}
+#fis_mat <- as.data.frame(stats_sites$Fis) 
+#fis_mat <- stats_sites$Fis %>% as.data.frame() %>% round(digits = 4)
+fis_mean_pop <- colMeans(fis_mat, na.rm = TRUE)  # mean FIS per population
+fis_mean_pop
+
+# compute overall global FST (Weir & Cockerham)
+wc_res <- hierfstat::wc(squirrel_sites_hierf)
+global_fst <- wc_res$FST   # single scalar
+
+# FIT per population via the identity
+fit_pop <- 1 - (1 - fis_mean_pop) * (1 - global_fst)
+
+# make a summary table
+fit_summary <- data.frame(
+  population = names(fis_mean_pop),
+  FIS_mean = round(fis_mean_pop, 3),
+  global_FST = round(global_fst, 3),
+  FIT = round(fit_pop, 3)
+)
+fit_summary
+```
+
+# Effective population size (Ne)
+Convert the genind object to a gtypes object
+```{r}
+# squirrel_genind_sites_miss <- missingno(pop = squirrel_genind_sites, type = "loci", cutoff = 0)
+# squirrel_gtypes_sites <- genind2gtypes(squirrel_genind_sites_miss)
+# class(squirrel_gtypes_sites)
+# 
+# squirrel_gtypes_sites
+# squirrel_genind_sites
+# squirrel_genind_sites_miss
+```
+
+```{r}
+#squirrel_gtypes_sites$
+```
+
+```{r}
+# # NOT WORKING
+# ne_ld <- strataG::ldNe(g = squirrel_gtypes_sites, 
+#                        maf.threshold = 0, 
+#                        by.strata = FALSE, 
+#                        ci = 0.95,
+#                        drop.missing = FALSE,
+#                        num.cores = 1)
+# ne_ld
+```
+
+```{r}
+# ne_ld2 <- strataG::ldNe(g = squirrel_gtypes_sites, 
+#                        maf.threshold = 0, 
+#                        by.strata = TRUE, 
+#                        ci = 0.95,
+#                        drop.missing = TRUE,
+#                        num.cores = 1)
+# ne_ld2
+```
+
+
+# Hardy-Weinberg equilibrium
+Expectations: Random mating, no selection, no migration, no inbreeding, no mutations 
+
+If there are significant differences, it is a hint about inbreeding, selection, genetic drift etc. 
+
+## All together
+```{r}
+squirrels_hwe <- squirrel_genind %>%
+  hw.test(B = 1000) %>%
+  as.data.frame() %>%
+  rename(chi_sq = `chi^2`, 
+         p_val = `Pr(chi^2 >)`) %>%
+  mutate(across(.cols = where(is.numeric), .fns = round, 4))
+```
+
+
+```{r}
+sum(squirrels_hwe$p_val < 0.05)
+table(squirrels_hwe$p_val < 0.05)
+```
+
+
+## Study sites
+```{r}
+study_sites_hwtest <- lapply(study_sites_pop, FUN = function(pop) hw.test(pop, B = 1000))
+```
+
+```{r}
+pop_names <- c("Rahnsdorf", "Treptower_Park", "Lilienthal")
+
+study_sites_HWE <- study_sites_hwtest %>%
+  set_names(pop_names) %>%
+  imap_dfr(~ {
+    as_tibble(.x, rownames = "Locus") %>%
+      mutate(Pop = .y)
+  }) %>%
+  rename(chi_sq = `chi^2`, 
+         p_val = `Pr(chi^2 >)`) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 4))) %>%
+  mutate(across(where(is.character), as.factor))
+```
+
+```{r}
+sum(study_sites_HWE$p_val < 0.05)
+table(study_sites_HWE$p_val < 0.05, study_sites_HWE$Pop)
+table(study_sites_HWE$p_val < 0.05)
+```
+
+
+
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

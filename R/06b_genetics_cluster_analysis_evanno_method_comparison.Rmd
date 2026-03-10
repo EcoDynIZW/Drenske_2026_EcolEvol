@@ -1,0 +1,947 @@
+---
+title: "Your Project: Data Preparation" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+d6::simple_load(c("tidyverse", 
+                  #"ggplot2", 
+                  "gridExtra", 
+                  #"here", 
+                  "royfrancis/pophelper" 
+                  #"scatterpie"
+                  ))
+```
+
+
+# Data
+
+```{r data}
+# Structure lists
+structure_list_135ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+                                                  "structure_list_135ID_20250819.RData"))
+# structure_list_136ID_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis", "old",
+#                                                       "structure_list_136ID_14L_20250719.RData"))
+# structure_list_134ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                   "structure_list_134ID_20250719.RData"))
+# structure_list_134ID_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                       "structure_list_134ID_14L_20250719.RData"))
+# structure_list_133ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                   "structure_list_133ID_20250719.RData"))
+# structure_list_133ID_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                       "structure_list_133ID_14L_20250719.RData"))
+# structure_list_93ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+#                                                   "structure_list_93ID_20250823.RData"))
+structure_list_100ID <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+                                                  "structure_list_100ID_20260210.RData"))
+
+# Gen squirrels
+gen_squirrels_135_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+                                                   "gen_squirrels_135_IDs_20250719.RDS"))
+# gen_squirrels_136_IDs_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                        "gen_squirrels_136_IDs_14L_620250719.RDS"))
+# gen_squirrels_134_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                    "gen_squirrels_134_IDs_620250719.RDS"))
+# gen_squirrels_134_IDs_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                        "gen_squirrels_134_IDs_14L_620250719.RDS"))
+# gen_squirrels_133_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                    "gen_squirrels_133_IDs_620250719.RDS"))
+# gen_squirrels_133_IDs_14L <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis","old",
+#                                                        "gen_squirrels_133_IDs_14L_620250719.RDS"))
+# gen_squirrels_93_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+#                                                    "gen_squirrels_93_IDs_20250823.RDS"))
+gen_squirrels_100_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",
+                                                   "gen_squirrels_100_IDs_20260210.RDS"))
+
+```
+
+# Overview gen_squirrels
+```{r}
+table(gen_squirrels_135_IDs$Study_site)
+table(gen_squirrels_135_IDs$study_site_specific)
+table(gen_squirrels_135_IDs$Sex, gen_squirrels_135_IDs$Study_site)
+length(unique(gen_squirrels_135_IDs$Squirrel_ID))
+length(unique(gen_squirrels_135_IDs$Name))
+table(gen_squirrels_135_IDs$Name, useNA = "always")
+```
+```{r}
+structure_list_135ID$"10k_Burnin_100k_MCMC_run_30_f"
+```
+
+# Attribute table of runs
+```{r}
+#135 IDs
+gen_tab_135_IDs <- tabulateQ(qlist = structure_list_135ID, 
+                             writetable = F, 
+                             exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+gen_tab_135_IDs
+
+# #136 IDs 14 Loci
+# gen_tab_136_IDs_14L <- tabulateQ(qlist = structure_list_136ID_14L,
+#                                  writetable = F,
+#                                  exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_136_IDs_14L
+# 
+# #134 IDs
+# gen_tab_134_IDs <- tabulateQ(qlist = structure_list_134ID, 
+#                              writetable = F, 
+#                              exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_134_IDs
+# 
+# #134 IDs 14 Loci
+# gen_tab_134_IDs_14L <- tabulateQ(qlist = structure_list_134ID_14L,
+#                                  writetable = F,
+#                                  exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_134_IDs_14L
+# 
+# #133 IDs
+# gen_tab_133_IDs <- tabulateQ(qlist = structure_list_133ID, 
+#                              writetable = F, 
+#                              exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_133_IDs
+# 
+# #133 IDs 14 Loci
+# gen_tab_133_IDs_14L <- tabulateQ(qlist = structure_list_133ID_14L,
+#                                  writetable = F,
+#                                  exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_133_IDs_14L
+
+# #93 IDs
+# gen_tab_93_IDs <- tabulateQ(qlist = structure_list_93ID, 
+#                              writetable = F, 
+#                              exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_tab_93_IDs
+
+#100 IDs
+gen_tab_100_IDs <- tabulateQ(qlist = structure_list_100ID, 
+                             writetable = TRUE, 
+                             exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+gen_tab_100_IDs
+```
+
+# Summarise data per run
+Creates a summary table from a tabulated dataframe per number of cluster (k)
+```{r}
+#135 IDs
+gen_summary_135_IDs <- summariseQ(data = gen_tab_135_IDs, 
+                          writetable = F, 
+                          exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+gen_summary_135_IDs
+
+# #136 IDs 14 Loci
+# gen_summary_136_IDs_14L <- summariseQ(data = gen_tab_136_IDs_14L,
+#                           writetable = F,
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_136_IDs_14L
+# 
+# #134 IDs
+# gen_summary_134_IDs <- summariseQ(data = gen_tab_134_IDs, 
+#                           writetable = F, 
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_134_IDs
+# 
+# #134 IDs 14 Loci
+# gen_summary_134_IDs_14L <- summariseQ(data = gen_tab_134_IDs_14L,
+#                           writetable = F,
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_134_IDs_14L
+# 
+# #133 IDs
+# gen_summary_133_IDs <- summariseQ(data = gen_tab_133_IDs, 
+#                           writetable = F, 
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_133_IDs
+# 
+# #133 IDs 14 Loci
+# gen_summary_133_IDs_14L <- summariseQ(data = gen_tab_133_IDs_14L,
+#                           writetable = F,
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_133_IDs_14L
+# 
+# #93 IDs
+# gen_summary_93_IDs <- summariseQ(data = gen_tab_93_IDs, 
+#                           writetable = F, 
+#                           exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+# gen_summary_93_IDs
+
+#100 IDs
+gen_summary_100_IDs <- summariseQ(data = gen_tab_100_IDs,
+                          writetable = TRUE,
+                          exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"))
+gen_summary_100_IDs
+
+
+# elpdmean = mean estimated ln probability of data 
+# elpdsd = stnadard deviation of estimated ln probability of data
+# elpdmin = estimated ln probability of data minus standard deviation
+# elpdmax = estimated ln probability of data plus standard deviation
+```
+
+# Evanno method (delta K)
+```{r}
+# 135 IDs
+evanno_135_IDs <- evannoMethodStructure(data = gen_summary_135_IDs,
+                                writetable = F, #T, 
+                                exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"), 
+                                outputfilename = "evanno_135_IDs_20250819")
+evanno_135_IDs
+
+# # 136 IDs 14 Loci
+# evanno_136_IDs_14L <- evannoMethodStructure(data = gen_summary_136_IDs_14L,
+#                                 writetable = F,
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"),
+#                                 outputfilename = "evanno_136_IDs_14L_20250719")
+# evanno_136_IDs_14L
+# 
+# # 134 IDs
+# evanno_134_IDs <- evannoMethodStructure(data = gen_summary_134_IDs,
+#                                 writetable = F, 
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"), 
+#                                 outputfilename = "evanno_134_IDs_20250719")
+# evanno_134_IDs
+# 
+# # 134 IDs 14 Loci
+# evanno_134_IDs_14L <- evannoMethodStructure(data = gen_summary_134_IDs_14L,
+#                                 writetable = F,
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"),
+#                                 outputfilename = "evanno_134_IDs_14L_20250719")
+# evanno_134_IDs_14L
+# 
+# # 133 IDs
+# evanno_133_IDs <- evannoMethodStructure(data = gen_summary_133_IDs,
+#                                 writetable = F, 
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"), 
+#                                 outputfilename = "evanno_133_IDs_20250719")
+# evanno_133_IDs
+# 
+# # 133 IDs 14 Loci
+# evanno_133_IDs_14L <- evannoMethodStructure(data = gen_summary_133_IDs_14L,
+#                                 writetable = F,
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"),
+#                                 outputfilename = "evanno_133_IDs_14L_20250719")
+# evanno_133_IDs_14L
+#
+# # 93 IDs
+# evanno_93_IDs <- evannoMethodStructure(data = gen_summary_93_IDs,
+#                                 writetable = F,#T, 
+#                                 exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"), 
+#                                 outputfilename = "evanno_93_IDs_20250819")
+# evanno_93_IDs
+
+# 100 IDs
+evanno_100_IDs <- evannoMethodStructure(data = gen_summary_100_IDs,
+                                writetable = TRUE, 
+                                exportpath = here::here("output", "data-proc", "genetic-proc", "cluster_analysis"), 
+                                outputfilename = "evanno_100_IDs_20250819")
+evanno_100_IDs
+
+
+# elpdmean = mean estimated ln probability of data 
+# elpdsd = stnadard deviation of estimated ln probability of data
+# elpdmin = estimated ln probability of data minus standard deviation
+# elpdmax = estimated ln probability of data plus standard deviation
+# Ink1 = First derivate
+# Ink1max = Max error of first derivate
+# lnk1min = Min error of first derivate
+# lnk2 = Second derivate
+# lnk2max = Max error of second derivate
+# lnk2min = Min error of second derivate
+# deltaK = Third derivative
+```
+
+
+```{r}
+# 135 IDs
+evanno_plot_135_IDs <- evannoMethodStructure(data = gen_summary_135_IDs,
+                                             exportplot = TRUE,#T,
+                                             writetable = F,#T,
+                                             returnplot = T,
+                                             returndata = F,
+                                             basesize = 20,
+                                             pointsize = 8,
+                                             pointcol = "grey30", #"#55847D",
+                                             pointtype = 20, 
+                                             linesize = 2,
+                                             linecol = "grey30",
+                                             ebwidth = 0.3,
+                                             ebcol = "grey30", #"#084552",
+                                             textcol = "grey30",
+                                             xaxisbreaks = c(2,4,6,8,10),
+                                             
+                                             gridsize = 0.2,
+                                             theme = "theme_bw", 
+                                             dpi = 300,
+                                             height = 25,
+                                             width = 30,
+                                             
+                                             exportpath = here::here("output", "data-proc", "genetic-proc",
+                                                                     "cluster_analysis"),
+                                             outputfilename = "evanno_135_IDs_20260211") 
+
+grid.arrange(evanno_plot_135_IDs)
+
+# # 136 IDs 14 Loci
+# evanno_plot_136_IDs_14L <- evannoMethodStructure(data = gen_summary_136_IDs_14L,
+#                                      exportplot = F,
+#                                      returnplot = T,
+#                                      returndata = F,
+#                                      basesize = 12,
+#                                      pointsize = 4,
+#                                      pointcol = "steelblue",
+#                                      pointtype = 20,
+#                                      linesize = 1,
+#                                      linecol = "steelblue",
+#                                      ebwidth = 0.2,
+#                                      ebcol = "grey30",
+#                                      textcol = "grey30",
+#                                      xaxisbreaks = waiver(),
+#                                      gridsize = 0.2,
+#                                      theme = "theme_bw")
+# grid.arrange(evanno_plot_136_IDs_14L)
+# 
+# # 134 IDs
+# evanno_plot_134_IDs <- evannoMethodStructure(data = gen_summary_134_IDs,
+#                                      exportplot = F,
+#                                      returnplot = T,
+#                                      returndata = F,
+#                                      basesize = 12,
+#                                      pointsize = 4,
+#                                      pointcol = "steelblue",
+#                                      pointtype = 20, 
+#                                      linesize = 1,
+#                                      linecol = "steelblue",
+#                                      ebwidth = 0.2,
+#                                      ebcol = "grey30",
+#                                      textcol = "grey30",
+#                                      xaxisbreaks = waiver(),
+#                                      gridsize = 0.2,
+#                                      theme = "theme_bw")
+# grid.arrange(evanno_plot_134_IDs)
+# 
+# # 134 IDs 14 Loci
+# evanno_plot_134_IDs_14L <- evannoMethodStructure(data = gen_summary_134_IDs_14L,
+#                                      exportplot = F,
+#                                      returnplot = T,
+#                                      returndata = F,
+#                                      basesize = 12,
+#                                      pointsize = 4,
+#                                      pointcol = "steelblue",
+#                                      pointtype = 20,
+#                                      linesize = 1,
+#                                      linecol = "steelblue",
+#                                      ebwidth = 0.2,
+#                                      ebcol = "grey30",
+#                                      textcol = "grey30",
+#                                      xaxisbreaks = waiver(),
+#                                      gridsize = 0.2,
+#                                      theme = "theme_bw")
+# grid.arrange(evanno_plot_134_IDs_14L)
+# 
+# 
+# # 133 IDs
+# evanno_plot_133_IDs <- evannoMethodStructure(data = gen_summary_133_IDs,
+#                                      exportplot = F,
+#                                      returnplot = T,
+#                                      returndata = F,
+#                                      basesize = 12,
+#                                      pointsize = 4,
+#                                      pointcol = "steelblue",
+#                                      pointtype = 20, 
+#                                      linesize = 1,
+#                                      linecol = "steelblue",
+#                                      ebwidth = 0.2,
+#                                      ebcol = "grey30",
+#                                      textcol = "grey30",
+#                                      xaxisbreaks = waiver(),
+#                                      gridsize = 0.2,
+#                                      theme = "theme_bw")
+# grid.arrange(evanno_plot_133_IDs)
+# 
+# # 133 IDs 14 Loci
+# evanno_plot_133_IDs_14L <- evannoMethodStructure(data = gen_summary_133_IDs_14L,
+#                                      exportplot = F,
+#                                      returnplot = T,
+#                                      returndata = F,
+#                                      basesize = 12,
+#                                      pointsize = 4,
+#                                      pointcol = "steelblue",
+#                                      pointtype = 20,
+#                                      linesize = 1,
+#                                      linecol = "steelblue",
+#                                      ebwidth = 0.2,
+#                                      ebcol = "grey30",
+#                                      textcol = "grey30",
+#                                      xaxisbreaks = waiver(),
+#                                      gridsize = 0.2,
+#                                      theme = "theme_bw")
+# grid.arrange(evanno_plot_133_IDs_14L)
+
+# # 93 IDs
+# evanno_plot_93_IDs <- evannoMethodStructure(data = gen_summary_93_IDs,
+#                                             exportplot = F,#T,
+#                                             writetable = F,#T,
+#                                             returnplot = T,
+#                                             returndata = F,
+#                                             basesize = 20,
+#                                             pointsize = 8,
+#                                             pointcol = "#55847D",
+#                                             pointtype = 20, 
+#                                             linesize = 2,
+#                                             linecol = "#55847D",
+#                                             ebwidth = 0.3,
+#                                             ebcol = "#084552",
+#                                             textcol = "grey30",
+#                                             xaxisbreaks = c(2,4,6,8,10),
+#                                             
+#                                             gridsize = 0.2,
+#                                             theme = "theme_bw", 
+#                                             dpi = 300,
+#                                             height = 25,
+#                                             width = 30,
+#                                             
+#                                             exportpath = here::here("output", "data-proc", "genetic-proc",
+#                                                                     "cluster_analysis"),
+#                                             outputfilename = "evanno_93_IDs_20250907") 
+# grid.arrange(evanno_plot_93_IDs)
+
+# 100 IDs
+evanno_plot_100_IDs <- evannoMethodStructure(data = gen_summary_100_IDs,
+                                            exportplot = TRUE,#T,
+                                            writetable = F,#T,
+                                            returnplot = T,
+                                            returndata = F,
+                                            basesize = 20,
+                                            pointsize = 8,
+                                            pointcol = "grey30",
+                                            pointtype = 20, 
+                                            linesize = 2,
+                                            linecol = "grey30",
+                                            ebwidth = 0.3,
+                                            ebcol = "grey30",
+                                            textcol = "grey30",
+                                            xaxisbreaks = c(2,4,6,8,10),
+                                            
+                                            gridsize = 0.2,
+                                            theme = "theme_bw", 
+                                            dpi = 300,
+                                            height = 25,
+                                            width = 30,
+                                            
+                                            exportpath = here::here("output", "data-proc", "genetic-proc",
+                                                                    "cluster_analysis"),
+                                            outputfilename = "evanno_100_IDs_20260211") 
+grid.arrange(evanno_plot_100_IDs)
+```
+
+# Plot of best genetic cluster K = 2 (???)
+```{r}
+###### 136 IDs
+# 10k_Burnin_100k_MCMC_run_51_f
+k2_list_135_IDs <- structure_list_135ID[c("10k_Burnin_100k_MCMC_run_26_f",
+                                          "10k_Burnin_100k_MCMC_run_27_f", "10k_Burnin_100k_MCMC_run_28_f",
+                                          "10k_Burnin_100k_MCMC_run_29_f", "10k_Burnin_100k_MCMC_run_30_f",
+                                          "10k_Burnin_100k_MCMC_run_31_f", "10k_Burnin_100k_MCMC_run_32_f",
+                                          "10k_Burnin_100k_MCMC_run_33_f", "10k_Burnin_100k_MCMC_run_34_f",
+                                          "10k_Burnin_100k_MCMC_run_35_f", "10k_Burnin_100k_MCMC_run_36_f",
+                                          "10k_Burnin_100k_MCMC_run_37_f", "10k_Burnin_100k_MCMC_run_38_f",
+                                          "10k_Burnin_100k_MCMC_run_39_f", "10k_Burnin_100k_MCMC_run_40_f",
+                                          "10k_Burnin_100k_MCMC_run_41_f", "10k_Burnin_100k_MCMC_run_42_f",
+                                          "10k_Burnin_100k_MCMC_run_43_f", "10k_Burnin_100k_MCMC_run_44_f",
+                                          "10k_Burnin_100k_MCMC_run_45_f", "10k_Burnin_100k_MCMC_run_46_f",
+                                          "10k_Burnin_100k_MCMC_run_47_f", "10k_Burnin_100k_MCMC_run_48_f",
+                                          "10k_Burnin_100k_MCMC_run_49_f", "10k_Burnin_100k_MCMC_run_50_f")]
+# align the clusters among the single runs of a specific K
+k2_list_135_IDs_align <- alignK(k2_list_135_IDs)
+# merge runs of the same cluster
+k2_list_135_IDs_align_merge <- mergeQ(k2_list_135_IDs_align)
+#test <- k2list_align_merge[[1]]
+squirrel_IDs_k2_list_135_IDs <- as.numeric
+
+# ###### 136 IDs 14 Loci
+# # 10k_Burnin_50k_MCMC_run_11_f
+# k2_list_136_IDs_14L <- structure_list_136ID_14L[c("10k_Burnin_50k_MCMC_run_11_f", "10k_Burnin_50k_MCMC_run_12_f",
+#                                                   "10k_Burnin_50k_MCMC_run_13_f", "10k_Burnin_50k_MCMC_run_14_f",
+#                                                   "10k_Burnin_50k_MCMC_run_15_f", "10k_Burnin_50k_MCMC_run_16_f",
+#                                                   "10k_Burnin_50k_MCMC_run_17_f", "10k_Burnin_50k_MCMC_run_18_f",
+#                                                   "10k_Burnin_50k_MCMC_run_19_f", "10k_Burnin_50k_MCMC_run_20_f")]
+# k2_list_136_IDs_14L_align <- alignK(k2_list_136_IDs_14L)
+# k2_list_136_IDs_14L_align_merge <- mergeQ(k2_list_136_IDs_14L_align)
+# squirrel_IDs_k2_list_136_IDs_14L <- as.numeric(rownames(k2_list_136_IDs_14L_align_merge[[1]]))
+# 
+# 
+# ###### 134 IDs
+# # 10k_Burnin_50k_MCMC_run_11_f
+# k2_list_134_IDs <- structure_list_134ID[c("10k_Burnin_50k_MCMC_run_11_f", "10k_Burnin_50k_MCMC_run_12_f", "10k_Burnin_50k_MCMC_run_13_f",
+#                             "10k_Burnin_50k_MCMC_run_14_f", "10k_Burnin_50k_MCMC_run_15_f", "10k_Burnin_50k_MCMC_run_16_f",
+#                             "10k_Burnin_50k_MCMC_run_17_f", "10k_Burnin_50k_MCMC_run_18_f", "10k_Burnin_50k_MCMC_run_19_f",
+#                             "10k_Burnin_50k_MCMC_run_20_f")]
+# k2_list_134_IDs_align <- alignK(k2_list_134_IDs)
+# k2_list_134_IDs_align_merge <- mergeQ(k2_list_134_IDs_align)
+# squirrel_IDs_k2_list_134_IDs <- as.numeric(rownames(k2_list_134_IDs_align_merge[[1]]))
+# 
+# ###### 134 IDs 14 Loci
+# # 10k_Burnin_50k_MCMC_run_11_f
+# k2_list_134_IDs_14L <- structure_list_134ID_14L[c("10k_Burnin_50k_MCMC_run_11_f", "10k_Burnin_50k_MCMC_run_12_f", "10k_Burnin_50k_MCMC_run_13_f",
+#                             "10k_Burnin_50k_MCMC_run_14_f", "10k_Burnin_50k_MCMC_run_15_f", "10k_Burnin_50k_MCMC_run_16_f",
+#                             "10k_Burnin_50k_MCMC_run_17_f", "10k_Burnin_50k_MCMC_run_18_f", "10k_Burnin_50k_MCMC_run_19_f",
+#                             "10k_Burnin_50k_MCMC_run_20_f")]
+# k2_list_134_IDs_14L_align <- alignK(k2_list_134_IDs_14L)
+# k2_list_134_IDs_14L_align_merge <- mergeQ(k2_list_134_IDs_14L_align)
+# squirrel_IDs_k2_list_134_IDs_14L <- as.numeric(rownames(k2_list_134_IDs_14L_align_merge[[1]]))
+# 
+# 
+# ###### 133 IDs
+# k2_list_133_IDs <- structure_list_133ID[c("10k_Burnin_50k_MCMC_run_11_f", "10k_Burnin_50k_MCMC_run_12_f", "10k_Burnin_50k_MCMC_run_13_f",
+#                             "10k_Burnin_50k_MCMC_run_14_f", "10k_Burnin_50k_MCMC_run_15_f", "10k_Burnin_50k_MCMC_run_16_f",
+#                             "10k_Burnin_50k_MCMC_run_17_f", "10k_Burnin_50k_MCMC_run_18_f", "10k_Burnin_50k_MCMC_run_19_f",
+#                             "10k_Burnin_50k_MCMC_run_20_f")]
+# k2_list_133_IDs_align <- alignK(k2_list_133_IDs)
+# k2_list_133_IDs_align_merge <- mergeQ(k2_list_133_IDs_align)
+# squirrel_IDs_k2_list_133_IDs <- as.numeric(rownames(k2_list_133_IDs_align_merge[[1]]))
+# 
+# ###### 133 IDs 14 Loci
+# # 10k_Burnin_50k_MCMC_run_11_f
+# k2_list_133_IDs_14L <- structure_list_133ID_14L[c("10k_Burnin_50k_MCMC_run_11_f", "10k_Burnin_50k_MCMC_run_12_f", "10k_Burnin_50k_MCMC_run_13_f",
+#                             "10k_Burnin_50k_MCMC_run_14_f", "10k_Burnin_50k_MCMC_run_15_f", "10k_Burnin_50k_MCMC_run_16_f",
+#                             "10k_Burnin_50k_MCMC_run_17_f", "10k_Burnin_50k_MCMC_run_18_f", "10k_Burnin_50k_MCMC_run_19_f",
+#                             "10k_Burnin_50k_MCMC_run_20_f")]
+# k2_list_133_IDs_14L_align <- alignK(k2_list_133_IDs_14L)
+# k2_list_133_IDs_14L_align_merge <- mergeQ(k2_list_133_IDs_14L_align)
+# squirrel_IDs_k2_list_133_IDs_14L <- as.numeric(rownames(k2_list_133_IDs_14L_align_merge[[1]]))
+# 
+# ###### 93 IDs
+# # 10k_Burnin_100k_MCMC_run_11_f
+# k2_list_93_IDs <- structure_list_93ID[c("10k_Burnin_100k_MCMC_run_26_f",
+#                                         "10k_Burnin_100k_MCMC_run_27_f", "10k_Burnin_100k_MCMC_run_28_f",
+#                                         "10k_Burnin_100k_MCMC_run_29_f", "10k_Burnin_100k_MCMC_run_30_f",
+#                                         "10k_Burnin_100k_MCMC_run_31_f", "10k_Burnin_100k_MCMC_run_32_f",
+#                                         "10k_Burnin_100k_MCMC_run_33_f", "10k_Burnin_100k_MCMC_run_34_f",
+#                                         "10k_Burnin_100k_MCMC_run_35_f", "10k_Burnin_100k_MCMC_run_36_f",
+#                                         "10k_Burnin_100k_MCMC_run_37_f", "10k_Burnin_100k_MCMC_run_38_f",
+#                                         "10k_Burnin_100k_MCMC_run_39_f", "10k_Burnin_100k_MCMC_run_40_f",
+#                                         "10k_Burnin_100k_MCMC_run_41_f", "10k_Burnin_100k_MCMC_run_42_f",
+#                                         "10k_Burnin_100k_MCMC_run_43_f", "10k_Burnin_100k_MCMC_run_44_f",
+#                                         "10k_Burnin_100k_MCMC_run_45_f", "10k_Burnin_100k_MCMC_run_46_f",
+#                                         "10k_Burnin_100k_MCMC_run_47_f", "10k_Burnin_100k_MCMC_run_48_f",
+#                                         "10k_Burnin_100k_MCMC_run_49_f", "10k_Burnin_100k_MCMC_run_50_f")]
+# k2_list_93_IDs_align <- alignK(k2_list_93_IDs)
+# k2_list_93_IDs_align_merge <- mergeQ(k2_list_93_IDs_align)
+# squirrel_IDs_k2_list_93_IDs <- as.numeric(rownames(k2_list_93_IDs_align_merge[[1]]))
+#
+# k3_list_93_IDs <- structure_list_93ID[c("10k_Burnin_100k_MCMC_run_51_f",
+#                                         "10k_Burnin_100k_MCMC_run_52_f", "10k_Burnin_100k_MCMC_run_53_f",
+#                                         "10k_Burnin_100k_MCMC_run_54_f", "10k_Burnin_100k_MCMC_run_55_f",
+#                                         "10k_Burnin_100k_MCMC_run_56_f", "10k_Burnin_100k_MCMC_run_57_f",
+#                                         "10k_Burnin_100k_MCMC_run_58_f", "10k_Burnin_100k_MCMC_run_59_f",
+#                                         "10k_Burnin_100k_MCMC_run_60_f", "10k_Burnin_100k_MCMC_run_61_f",
+#                                         "10k_Burnin_100k_MCMC_run_62_f", "10k_Burnin_100k_MCMC_run_63_f",
+#                                         "10k_Burnin_100k_MCMC_run_64_f", "10k_Burnin_100k_MCMC_run_65_f",
+#                                         "10k_Burnin_100k_MCMC_run_66_f", "10k_Burnin_100k_MCMC_run_67_f",
+#                                         "10k_Burnin_100k_MCMC_run_68_f", "10k_Burnin_100k_MCMC_run_69_f",
+#                                         "10k_Burnin_100k_MCMC_run_70_f", "10k_Burnin_100k_MCMC_run_71_f",
+#                                         "10k_Burnin_100k_MCMC_run_72_f", "10k_Burnin_100k_MCMC_run_73_f",
+#                                         "10k_Burnin_100k_MCMC_run_74_f", "10k_Burnin_100k_MCMC_run_75_f")]
+# k3_list_93_IDs_align <- alignK(k3_list_93_IDs)
+# k3_list_93_IDs_align_merge <- mergeQ(k3_list_93_IDs_align)
+# squirrel_IDs_k3_list_93_IDs <- as.numeric(rownames(k3_list_93_IDs_align_merge[[1]]))
+
+
+###### 100 IDs
+# 10k_Burnin_100k_MCMC_run_11_f
+k2_list_100_IDs <- structure_list_100ID[c("10k_Burnin_100k_MCMC_run_26_f",
+                                        "10k_Burnin_100k_MCMC_run_27_f", "10k_Burnin_100k_MCMC_run_28_f",
+                                        "10k_Burnin_100k_MCMC_run_29_f", "10k_Burnin_100k_MCMC_run_30_f",
+                                        "10k_Burnin_100k_MCMC_run_31_f", "10k_Burnin_100k_MCMC_run_32_f",
+                                        "10k_Burnin_100k_MCMC_run_33_f", "10k_Burnin_100k_MCMC_run_34_f",
+                                        "10k_Burnin_100k_MCMC_run_35_f", "10k_Burnin_100k_MCMC_run_36_f",
+                                        "10k_Burnin_100k_MCMC_run_37_f", "10k_Burnin_100k_MCMC_run_38_f",
+                                        "10k_Burnin_100k_MCMC_run_39_f", "10k_Burnin_100k_MCMC_run_40_f",
+                                        "10k_Burnin_100k_MCMC_run_41_f", "10k_Burnin_100k_MCMC_run_42_f",
+                                        "10k_Burnin_100k_MCMC_run_43_f", "10k_Burnin_100k_MCMC_run_44_f",
+                                        "10k_Burnin_100k_MCMC_run_45_f", "10k_Burnin_100k_MCMC_run_46_f",
+                                        "10k_Burnin_100k_MCMC_run_47_f", "10k_Burnin_100k_MCMC_run_48_f",
+                                        "10k_Burnin_100k_MCMC_run_49_f", "10k_Burnin_100k_MCMC_run_50_f")]
+k2_list_100_IDs_align <- alignK(k2_list_100_IDs)
+k2_list_100_IDs_align_merge <- mergeQ(k2_list_100_IDs_align)
+squirrel_IDs_k2_list_100_IDs <- as.numeric(rownames(k2_list_100_IDs_align_merge[[1]]))
+
+```
+
+
+## With group labels
+### Prepare group labels
+
+```{r}
+squirrel_study_site3_135_IDs <- gen_squirrels_135_IDs %>% 
+  dplyr::select(Study_site) %>% 
+  mutate(Study_site = as.character(Study_site),
+    Study_site = dplyr::recode(
+      Study_site,
+      "Rahnsdorf" = "Woodland area",
+      "Treptower_Park" = "Urban park",
+      "Lilienthal" = "Cemetery"
+    )
+  )
+# squirrel_study_site3_136_IDs_14L <- gen_squirrels_136_IDs_14L %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+# squirrel_study_site3_134_IDs <- gen_squirrels_134_IDs %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+# squirrel_study_site3_134_IDs_14L <- gen_squirrels_134_IDs_14L %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+# squirrel_study_site3_133_IDs <- gen_squirrels_133_IDs %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+# squirrel_study_site3_133_IDs_14L <- gen_squirrels_133_IDs_14L %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+# squirrel_study_site3_93_IDs <- gen_squirrels_93_IDs %>% dplyr::select(Study_site) %>% mutate(Study_site = as.character(Study_site))
+squirrel_study_site3_100_IDs <- gen_squirrels_100_IDs %>% 
+  dplyr::select(Study_site) %>% 
+  mutate(Study_site = as.character(Study_site),
+    Study_site = dplyr::recode(
+      Study_site,
+      "Rahnsdorf" = "Woodland area",
+      "Treptower_Park" = "Urban park",
+      "Lilienthal" = "Cemetery"
+    )
+         )
+# Just for 135 IDs
+squirrel_area <- gen_squirrels_135_IDs %>% dplyr::select(area_type) %>% mutate(area_type = as.character(area_type))
+squirrel_study_site4 <- gen_squirrels_135_IDs %>% dplyr::select(study_site_specific) %>% mutate(study_site_specific = as.character(study_site_specific))
+squirrel_sex <- gen_squirrels_135_IDs %>% dplyr::select(Sex) %>% mutate(Sex = as.character(Sex))
+squirrel_sex$Sex[is.na(squirrel_sex$Sex)] <- "unknown"
+squirrel_season <- gen_squirrels_135_IDs %>% dplyr::select(Season) %>% mutate(Season = as.character(Season))
+```
+
+### Plots with one group
+#### Comparison with study sites
+```{r}
+# 135 IDs
+p_sites_135_IDs <- plotQ(k2_list_135_IDs_align_merge,
+                         ### main
+                          #imgoutput="join",
+                          returnplot = T, 
+                          exportplot = T, 
+                          basesize = 5,
+                          panelratio = c(7,1),
+                          ### Plot panel
+                          clustercol = c("#4D4D4D", "#6C91BF"), 
+                          sortind = "Cluster1", 
+                          ### Individual labels
+                          showindlab = FALSE,
+                          indlabsize = 15, # also for axis size
+                          sharedindlab = F,
+                          
+                          ### Group label panel
+                          grplab = squirrel_study_site3_135_IDs,
+                          ordergrp = T,
+                          
+                          ### Group labels
+                          grplabsize = 1, 
+                          grplabalpha = 0,
+                          
+                          ### Label line
+                          linesize = 1, 
+                          linealpha = 0,
+                          ### Label points
+                          pointsize = 1, 
+                          pointtype = 15,
+                          pointalpha = 0,
+                          ### Strip panel
+                          showsp = FALSE, 
+                          splab = "",
+                          splabsize = 0,
+                          ### Axis
+                          showyaxis = F, 
+                          showticks = F,
+                          ticksize = 0.5,
+                          ### Divider line
+                          divsize = 2,
+                          ### export settings
+                          dpi = 800,
+                          height = 4,
+                          width = 20,
+                         exportpath = here::here("plots", "genetics"),
+                         outputfilename = "cluster_bar_135_IDs_20260211")
+grid.arrange(p_sites_135_IDs$plot[[1]])
+```
+
+
+```{r}
+# c("#4D4D4D", "#5DA5DA")
+# c("#4D4D4D", "#A6CEE3", "#FDBF6F")
+# c("#4D4D4D", "#6C91BF")
+# c("#4D4D4D", "#E17C9C")
+# c("#4D4D4D", "#E17C9C", "#F7B6C2")
+
+# # 136 IDs 14 Loci
+# p_sites_136_IDs_14L <- plotQ(k2_list_136_IDs_14L_align_merge,returnplot = T,exportplot = F,basesize = 11,
+#                              grplab = squirrel_study_site3_136_IDs_14L, selgrp = "Study_site",
+#                              subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), ordergrp = TRUE,
+#                              sortind = "Cluster1", showsp = TRUE, # clustercol = c("black", "orange"),
+#                              grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T,showticks = T)
+# grid.arrange(p_sites_136_IDs_14L$plot[[1]])
+# 
+# # 134 IDs 
+# p_sites_134_IDs <- plotQ(k2_list_134_IDs_align_merge, returnplot = T, exportplot = F, basesize = 11,
+#                          grplab = squirrel_study_site3_134_IDs, selgrp = "Study_site",
+#                          subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), ordergrp = TRUE,
+#                          sortind = "Cluster1", showsp = TRUE, # clustercol = c("black", "orange"), 
+#                          grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T, showticks = T)
+# grid.arrange(p_sites_134_IDs$plot[[1]])
+# 
+# # 134 IDs 14 Loci
+# p_sites_134_IDs_14L <- plotQ(k2_list_134_IDs_14L_align_merge,returnplot = T,exportplot = F,basesize = 11,
+#                              grplab = squirrel_study_site3_134_IDs_14L, selgrp = "Study_site",
+#                              subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), ordergrp = TRUE,
+#                              sortind = "Cluster1", showsp = TRUE, # clustercol = c("black", "orange"),
+#                              grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T,showticks = T)
+# grid.arrange(p_sites_134_IDs_14L$plot[[1]])
+# 
+# # 133 IDs
+# p_sites_133_IDs <- plotQ(k2_list_133_IDs_align_merge, returnplot = T, exportplot = F, basesize = 11,
+#                          grplab = squirrel_study_site3_133_IDs, selgrp = "Study_site",
+#                          subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), ordergrp = TRUE,
+#                          sortind = "Cluster1", showsp = TRUE, # clustercol = c("black", "orange"),
+#                          grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T, showticks = T)
+# grid.arrange(p_sites_133_IDs$plot[[1]])
+# 
+# # 133 IDs 14 Loci
+# p_sites_133_IDs_14L <- plotQ(k2_list_133_IDs_14L_align_merge,returnplot = T,exportplot = F,basesize = 11,
+#                              grplab = squirrel_study_site3_133_IDs_14L, selgrp = "Study_site",
+#                              subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), ordergrp = TRUE,
+#                              sortind = "Cluster1", showsp = TRUE, # clustercol = c("black", "orange"),
+#                              grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T,showticks = T)
+# grid.arrange(p_sites_133_IDs_14L$plot[[1]])
+```
+
+
+```{r}
+# p_sites_93_IDs <- plotQ(k2_list_93_IDs_align_merge, 
+#                         # main
+#                         #imgoutput="join",
+#                         returnplot = T, 
+#                         exportplot = F,#T, 
+#                         basesize = 5,
+#                         # group lab panel
+#                         grplab = squirrel_study_site3_93_IDs,
+#                         panelratio = c(7,1),
+#                         #selgrp = "Study_site",
+#                         #subsetgrp = c("Treptower_Park", "Lilienthal", "Rahnsdorf"), 
+#                         ordergrp = T,
+#                         sortind = "Cluster1", # Cluster1
+#                         sharedindlab = F,
+#                         grplabsize = 0.5, 
+#                         linesize = 2, 
+#                         pointsize = 7, 
+#                         # Strip panel
+#                         showsp = FALSE, 
+#                         splab = "",
+#                         splabsize = 0,
+#                         clustercol = c("#4D4D4D", "#6C91BF"), 
+#                         showyaxis = F, 
+#                         showticks = F,
+#                         # Divider line
+#                         divsize = 1,
+#                         # export settings
+#                         dpi = 300,
+#                         height = 13,
+#                         width = 20,
+#                         exportpath = here::here("plots", "genetics"),
+#                         outputfilename = "cluster_bar_93_IDs_20250907")
+# grid.arrange(p_sites_93_IDs$plot[[1]])
+```
+
+```{r}
+test <- as.data.frame(sort(gen_squirrels_100_IDs$Study_site))
+squirrel_study_site3_100_IDs$Study_site %in% gen_squirrels_100_IDs$Study_site
+squirrel_study_site3_100_IDs$Study_site %in% test
+```
+
+```{r}
+p_sites_100_IDs <- plotQ(k2_list_100_IDs_align_merge, 
+                          ### main
+                          #imgoutput="join",
+                          returnplot = T, 
+                          exportplot = T, 
+                          basesize = 5,
+                          panelratio = c(7,1),
+                          ### Plot panel
+                          clustercol = c("#4D4D4D", "#6C91BF"), 
+                          sortind = "Cluster1", 
+                          ### Individual labels
+                          showindlab = FALSE,
+                          indlabsize = 15, # also for axis size
+                          sharedindlab = F,
+                          
+                          ### Group label panel
+                          grplab = squirrel_study_site3_100_IDs,
+                          ordergrp = T,
+                          
+                          ### Group labels
+                          grplabsize = 1, 
+                          grplabalpha = 0,
+                          
+                          ### Label line
+                          linesize = 1, 
+                          linealpha = 0,
+                          ### Label points
+                          pointsize = 1, 
+                          pointtype = 15,
+                          pointalpha = 0,
+                          ### Strip panel
+                          showsp = FALSE, 
+                          splab = "",
+                          splabsize = 0,
+                          ### Axis
+                          showyaxis = F, 
+                          showticks = F,
+                          ticksize = 0.5,
+                          ### Divider line
+                          divsize = 2,
+                          ### export settings
+                          dpi = 800,
+                          height = 4,
+                          width = 20,
+                          exportpath = here::here("plots", "genetics"),
+                          outputfilename = "cluster_bar_100_IDs_20260211")
+#grid.arrange(p_sites_100_IDs$plot[[1]])
+
+# Not working due to a bug 
+#selgrp = "Study_site",
+#subsetgrp = c("Rahnsdorf", "Lilienthal"), #c("Rahnsdorf"), # "Treptower_Park", "Lilienthal", 
+#subset = c("Treptower_Park", "Lilienthal"),
+```
+
+There is a bug in the function so one cannot order individuals and groups. So if I order individuals by Cluster I cannot reorder the study sites. But with renaming the sites it is fine
+
+
+```{r}
+grid.arrange(p_sites_100_IDs$plot[[1]], p_sites_100_IDs2$plot[[1]])
+```
+
+
+comparison
+```{r}
+grid.arrange(p_sites_135_IDs$plot[[1]])
+
+grid.arrange(p_sites_100_IDs$plot[[1]])
+
+grid.arrange(p_sites_135_IDs$plot[[1]], p_sites_100_IDs$plot[[1]])
+
+
+```
+
+
+```{r}
+p_sites_93_IDs_3K <- plotQ(k3_list_93_IDs_align_merge, returnplot = T, 
+                           exportplot = F, 
+                           basesize = 11,
+                         grplab = squirrel_study_site3_93_IDs, #selgrp = "Study_site",
+                         #subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), 
+                         ordergrp = TRUE,
+                         sortind = "Cluster1", showsp = TRUE, clustercol = c("#4D4D4D", "#6C91BF", "#C75A7B"), 
+                         grplabsize = 4, linesize = 0.8, pointsize = 4, showyaxis = T, showticks = T)
+grid.arrange(p_sites_93_IDs_3K$plot[[1]])
+```
+
+#### Other variables just for 136 IDs
+```{r}
+p_area <- plotQ(k2_list_135_IDs_align_merge,returnplot = T,exportplot = F,basesize = 11,
+            grplab = squirrel_area, sortind = "Cluster1",
+            subsetgrp = c("rural", "urban"), 
+            ordergrp = TRUE,
+            grplabsize = 4, linesize = 0.8, pointsize = 4)
+
+p_site4 <- plotQ(k2_list_135_IDs_align_merge,returnplot = T,exportplot = F,basesize = 11,
+            grplab = squirrel_study_site4, sortind = "Cluster1",
+            subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptow_south", "Treptow_north"), ordergrp = TRUE,
+            grplabsize = 4, linesize = 0.8, pointsize = 4)
+
+p_season <- plotQ(k2_list_135_IDs_align_merge,returnplot = T,exportplot = F,basesize = 11,
+            grplab = squirrel_season, sortind = "Cluster1",
+            subsetgrp = c("Spring", "Autumn"), ordergrp = TRUE,
+            grplabsize = 4, linesize = 0.8, pointsize = 4)
+
+
+p_sex <- plotQ(k2_list_135_IDs_align_merge,returnplot = T,exportplot = F,basesize = 11,
+            grplab = squirrel_sex, sortind = "Cluster1",
+            #subsetgrp = c("f", "m", "unknown"), 
+            ordergrp = TRUE,
+            grplabsize = 4, linesize = 0.8, pointsize = 4)
+
+
+grid.arrange(p_sites_135_IDs$plot[[1]], p_area$plot[[1]], p_site4$plot[[1]], p_season$plot[[1]], p_sex$plot[[1]],
+             ncol = 1, nrow = 5)
+
+
+# Study site is the best representation of the clusters
+```
+
+### Plots with two groups
+```{r}
+# p9 <- plotQ(k6list_align_merge,returnplot = T,exportplot = F,basesize = 11,
+#             grplab = squirrel_study_site_sex, sortind = "Cluster1", 
+#             #subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), 
+#             ordergrp = TRUE,
+#             grplabsize = 4, linesize = 0.8, pointsize = 4)
+# 
+# p10 <- plotQ(k6list_align_merge,returnplot = T,exportplot = F,basesize = 11,
+#             grplab = squirrel_study_site_year, sortind = "Cluster1", 
+#             #subsetgrp = c("Rahnsdorf", "Lilienthal", "Treptower_Park"), 
+#             ordergrp = TRUE,
+#             grplabsize = 4, linesize = 0.8, pointsize = 4)
+# 
+# #grid.arrange(p4$plot[[1]], p9$plot[[1]], ncol = 1, nrow = 2)
+# grid.arrange(p4$plot[[1]], p9$plot[[1]], p10$plot[[1]], ncol = 1, nrow = 3)
+```
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

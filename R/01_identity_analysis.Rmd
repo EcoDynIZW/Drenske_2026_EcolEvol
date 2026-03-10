@@ -1,0 +1,542 @@
+---
+title: "Squirrel survival and genetics: Identity analysis" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+library(tidyverse)
+```
+
+
+# Data
+
+```{r data}
+## To import tabular data (.csv, .txt, .xls etc.)
+squirrels_raw <- vroom::vroom(file = here::here("data-raw", "cmr-raw", "squirrels_raw_data_20250712_SD.csv"), 
+                             delim = ";", 
+                             locale = locale(encoding = "ISO-8859-1", 
+                                             decimal_mark = ".")
+)
+squirrels_raw <- squirrels_raw %>% 
+  select(Date, Season, Project_phase, Study_site, Trap_nr, Squirrel_ID,Name, Capture_or_recapture, Sex, comment, protocol_nr_old, protocol_nr)
+# Squirrel cmr data
+#squirrels <- vroom::vroom(file = here::here("output", "data-proc", "cmr-proc", "squirrels_20250524.csv"))
+
+# Identity analysis
+identity16 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_16_loci_00_fuzzy_20250706.csv"))
+identity15 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_146_IDs_15_loci_01_fuzzy_20250706.csv"))
+identity14 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_137_IDs_minfreq1_14_loci_02_fuzzy_20250706.csv"))
+# identity13 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_137_IDs_minfreq1_13_loci_03_fuzzy_20250706.csv"))
+identity12 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_137_IDs_minfreq1_12_loci_04_fuzzy_20250706.csv"))
+# identity11 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_137_IDs_minfreq1_11_loci_05_fuzzy_20250706.csv"))
+# identity11b <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_137_IDs_minfreq5_11_loci_05_fuzzy_20250706.csv"))
+identity15_p2 <- vroom::vroom(file = here::here("data-raw", "genetic-raw", "Cervus", "Squirrels_cervus_identity_136_IDs_minfreq5_15_loci_01_fuzzy_20250718.csv"))
+```
+
+# 16 Loci
+Find all rows where the loci match in sufficient numbers
+```{r}
+identical_16 <- identity16 %>% 
+  filter(Status != "Excluded")
+```
+
+List the IDs (sample number) in the two columns and check whether any ID appears more than once.
+```{r}
+table(identical_16$`First ID`)
+table(identical_16$`Second ID`)
+# No ID was used more than once
+identical_IDs <- c(identical_16$`First ID`, identical_16$`Second ID`)
+```
+
+Now the IDs from each match are compared with the original capturing data to see whether we were already aware that it was the same ID and we took another sample, or whether we did not know that the animals were duplicates. Sometimes animals already had holes in their ears, but we could not find a chip, or we were not aware that this animal had already been captured, etc.
+```{r}
+# Nr 1: 147, 196
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[1]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[1]))
+# both are Chelipsi. FINE!
+# Keep 147
+```
+
+
+```{r}
+# Nr 2: 160,173
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[2]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[2]))
+# both are Haselnuss. FINE!
+# Keep 160
+```
+
+```{r}
+# Nr 3: 171, 86
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[3]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[3]))
+# both are Chandler. FINE!
+# Keep 86
+```
+
+```{r}
+# Nr 4: 174,85
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[4]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[4]))
+# both are Valentine FINE!
+# Keep 85
+```
+
+```{r}
+# Nr 5: 175, 3 (3 was a wrong old protocol nr, so we have to use the correct/current protocol nr here)
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[5]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[5]))
+# Scar and Woody. We captured Woody 3 times, Scar 16 times
+# Keep 3, change name to Scar in the CMR data
+# During the first capture of Scar, we wrote that he already had holes in his ear, but we couldn't find a chip!
+```
+
+```{r}
+# Nr 6: 178, 215
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[6]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[6]))
+# Galadriel and Raphi. We captured Galadriel 2 times, Raphi 6 times. Female. We did not noticed that she had already a hole in her ear (maybe we took the other one for the other sample)
+# We recaptured them during the same season (autumn 2024)
+# Keep 178, change name of Raphi to Galadriel in the CMR data
+```
+
+```{r}
+# Nr 7: 180,77
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[7]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[7]))
+# both are Rupert FINE!
+# Keep 77
+```
+
+```{r}
+# Nr 8: 194,78
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[8]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[8]))
+# both are Marcus FINE!
+# Keep 78
+```
+
+```{r}
+# Nr 9: 232,271
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[9]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[9]))
+# Angy and Chap. We noticed that Chap had already holes in her ear. Female
+# Keep 232 change name of Chap to Angy in the CMR data
+```
+
+```{r}
+# Nr 10: 30,56
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`First ID`[10]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[10]))
+# Betty and Robinia, both were captured just once, in the same trap
+# Keep 30, change Betty to Robinia in the CMR data
+```
+
+```{r}
+# Nr 11: 314,460
+squirrels_raw %>% filter(protocol_nr == c(identical_16$`First ID`[11]))
+squirrels_raw %>% filter(protocol_nr == c(identical_16$`Second ID`[11]))
+# both are Poebel FINE! (One sample has missing data in 2 loci)
+# Keep both for now - just as a test
+```
+
+
+```{r}
+# Nr 12: 327,372
+squirrels_raw %>% filter(protocol_nr == c(identical_16$`First ID`[12]))
+squirrels_raw %>% filter(protocol_nr == c(identical_16$`Second ID`[12]))
+# Samson and Theodore. During the first capture of Theodore, we wrote that he already had holes in his ear, but we couldn't find a chip! We captured Samson 1x, Theodore 2x
+# Keep 327 change Samson to Theodore in the CMR data
+```
+
+```{r}
+# Nr 13: 483,98
+squirrels_raw %>% filter(protocol_nr == c(identical_16$`First ID`[13]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_16$`Second ID`[13]))
+# Gabriel and Tristan
+# Keep 98 change Gabriel to Tristan in the CMR data
+```
+
+## Summary
+Out of 12 identical genotypes, 6 were really from the same individuals. The remaining 6 were assigned by us to different individuals. I will remove the duplicate values as indicated
+
+# 15 Loci
+0 matching genotypes without fuzzy matching
+```{r}
+identical_15 <- identity15 %>% 
+  filter(Status != "Excluded")
+```
+
+```{r}
+table(identical_15$`First ID`)
+table(identical_15$`Second ID`)
+# 4 IDs were used more than once
+```
+
+```{r}
+# Nr 1: 1, 237
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[1]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[1]))
+# both are Ratchet. FINE! 
+# Difference in Scv 32: 238 vs 236
+# Create a new genotype with both allele sizes. 1*
+```
+
+
+```{r}
+# Nr 2, 3, 5: 105,144, 179
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[2]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[2]))
+#squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[3])) also 105
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[3]))
+# squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[5])) also 144
+# squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[5])) also 179
+# Rick, Alio, Alio 
+# 144 179 are both Alio, Fine. But the difference between Rick and Alio is too big in Scv31.
+# Keep 105, 144 
+```
+
+```{r}
+# Nr 4: 133, 98
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[4]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[4]))
+# Gabriel/Tristan (see above) and Bones. We already suspected that it was Gabriel/Tristan when we captured Bones (i.e. Tristan)
+# Difference in Scv 32: 238 vs 262 - The difference is really high! So we assume that they are not the same individual.
+# Keep 98 and 133
+```
+
+```{r}
+# Nr 6: 157, 202
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[6]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[6]))
+# Both are Hagrida - FINE
+# Difference in Scv 14
+# Keep 202, it is heterozygous
+```
+
+```{r}
+# Nr 7, 8: 162,96, 170
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[7]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[7]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[8]))
+#squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[8]))
+# Hummus and Maggie and Hummus. we wrote that Hummus (162) already had holes in his ear, but we couldn't find a chip!
+# Difference in Rsu4: 267 vs 287 - high difference???
+# However, the samples of hummus (162, 170) vary in two loci
+# Rsu4 and Scv 32 220 vs 262 - high difference?
+
+# We will merge the two samples of Hummus to a new genotype. But we will keep Hummus and Maggie as different individuals. The allele size difference is too big and we cannot be sure that they are the same individual.
+# We will keep 162* and 96
+
+```
+
+```{r}
+# Nr 9: 188,26
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[9]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[9]))
+# Both are Boyle - FINE
+# Difference in Rsu 5: 139 vs 137
+# Create a new genotype with both allele sizes. 26*
+```
+
+```{r}
+# Nr 10: 229,52
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[10]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[10]))
+# Both are Lola - FINE
+# Difference in Scv 32: 262 vs 234 - high difference?
+# Keep 229, it is heterozygous
+```
+
+```{r}
+# Nr 11,12,13: 306,314,460
+squirrels_raw %>% filter(protocol_nr == c(identical_15$`First ID`[11]))
+squirrels_raw %>% filter(protocol_nr == c(identical_15$`Second ID`[11]))
+# squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[12])) 306
+squirrels_raw %>% filter(protocol_nr == c(identical_15$`Second ID`[12]))
+# squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[13])) 314
+# squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[13])) 460
+
+# Rebell, Poebel, Poebel. We have assumed that Rebel and Poebel are the same individual
+# Difference in Rsu 5: 135 vs 137
+# Poebel 460 has missing data in Scv12 and Scv23
+# Keep 306, it is heterozygous
+```
+
+```{r}
+# Nr 14: 334, 492
+squirrels_raw %>% filter(protocol_nr == c(identical_15$`First ID`[14]))
+squirrels_raw %>% filter(protocol_nr == c(identical_15$`Second ID`[14]))
+# Octavius and Loki,  both from Rahnsdorf, captured in different seasons, same trap
+# Difference in Scv 9: 200 vs 198
+# BUT Octavius (492) has missing data in Scv32, Scv8 and Scv12 - comparison possible??? Not really or
+# Keep both, run analysis with and without Octavius (492)
+```
+
+```{r}
+# Nr 15: 4, 55
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`First ID`[15]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_15$`Second ID`[15]))
+# Isabella and Josie
+# Difference in Scv 12: 198 vs 196
+# Keep 55, it is heterozygous. Change name to Josie in CMR data
+```
+
+# 14 Loci
+```{r}
+identical_14 <- identity14 %>% 
+  filter(Status != "Excluded")
+# Nr 1, 2, 5, 6 are relicts from 15 loci comparison because I haven’t deleted all individuals before the discus-sion with Jörns
+```
+
+```{r}
+table(identical_14$`First ID`)
+table(identical_14$`Second ID`)
+# No IDs were used more than once
+
+```
+
+```{r}
+# Nr 3: 18,48
+squirrels_raw %>% filter(protocol_nr_old == c(identical_14$`First ID`[3]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_14$`Second ID`[3]))
+# Clank and Walter, Rahn, different traps (same part of the forest)
+# Difference in Scv 8: 198 vs 200 und Scv 23: 158 vs 164
+# Keep both 
+```
+
+```{r}
+# Nr 4: 308,461
+squirrels_raw %>% filter(protocol_nr == c(identical_14$`First ID`[4]))
+squirrels_raw %>% filter(protocol_nr == c(identical_14$`Second ID`[4]))
+# Drops and Erend, Lilie, same trap
+# Difference in Scv 9: 200 vs 198 and Rsu5: 135 vs 137
+# Keep 308, difference is quite small 
+```
+
+
+# 13 Loci
+```{r}
+identical_13 <- identity13 %>% 
+  filter(Status != "Excluded")
+# Nr 1, 2, 5, 6 are relicts from 15 loci comparison because I haven’t deleted all individuals before the discus-sion with Jörns
+```
+
+```{r}
+table(identical_13$`First ID`)
+table(identical_13$`Second ID`)
+# No IDs were used more than once
+
+```
+
+```{r}
+# Nr 2: 139, 75
+squirrels_raw %>% filter(protocol_nr_old == c(identical_13$`First ID`[2]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_13$`Second ID`[2]))
+# Hailey and Alexa, Lilie, same trap, captured during same season, had already hole in the ear but we could not find a chip
+# Difference in Rsu5: 137 vs 131, Scv8: 188 vs 200, Scv16: 182 182 vs 184 198
+# Keep both for the moment
+```
+
+
+# 12 Loci
+```{r}
+identical_12 <- identity12 %>% 
+  filter(Status != "Excluded")
+# Nr 1, 2, 5, 6 are relicts from 15 loci comparison because I haven’t deleted all individuals before the discus-sion with Jörns
+```
+
+```{r}
+table(identical_12$`First ID`)
+table(identical_12$`Second ID`)
+# No IDs were used more than once
+# Relicts: 2, 3,4,5,
+# To Do: 1, 6, 7
+```
+```{r}
+# Nr 1: 10, 29
+squirrels_raw %>% filter(protocol_nr_old == c(identical_12$`First ID`[1]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_12$`Second ID`[1]))
+# Isabella and Jim - same study sites (TP), almost same trap (really close to each other)
+# we noted down that he had large testicles... so probably not the same
+# BUT different sex
+# Keep both for the moment
+```
+
+```{r}
+# Nr 6: 204, 362
+squirrels_raw %>% filter(protocol_nr_old == c(identical_12$`First ID`[6]))
+squirrels_raw %>% filter(protocol_nr == c(identical_12$`Second ID`[6]))
+# Hermine and Rita, TP, same trap, females
+# first capture of Rita 2 weeks after the last capture of hermine, both were lactating
+# Keep both for the moment
+```
+
+```{r}
+# Nr 7: 3, 57
+squirrels_raw %>% filter(protocol_nr_old == c(identical_12$`First ID`[7]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_12$`Second ID`[7]))
+# Bolt and Scar, TP, different traps but same area
+# We wrote down that Scar had already holes in his ear
+# Keep both for the moment
+```
+
+# 11 Loci
+```{r}
+identical_11 <- identity11 %>% 
+  filter(Status != "Excluded")
+identical_11b <- identity11b %>% 
+  filter(Status != "Excluded")
+
+```
+
+```{r}
+table(identical_11$`First ID`)
+table(identical_11$`Second ID`)
+# No IDs were used more than once
+# Relicts: 2, 3,4,5,
+# To Do: 4,5,8,9,11,14,16,17,19
+```
+
+```{r}
+# Nr 4, 5,8: 16,186,21
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`First ID`[4]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`Second ID`[4]))
+#squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`First ID`[5]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`Second ID`[5]))
+#squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`First ID`[8]))
+#squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`Second ID`[8]))
+
+# Jessie, Gina and Sven - same study sites (TP), Gina was captured in another part of TP
+# BUT different sex (Sven is a male)
+# Gina and Jessie were once captured on the same day, 1 hour apart in different areas of the park
+# Keep all for the moment
+```
+
+
+```{r}
+# Nr 9: 190,327
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`First ID`[9]))
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`Second ID`[9]))
+# Cora and Samson - same study sites (TP), different parts of the park
+# AND different sex
+# Keep both for the moment
+```
+
+```{r}
+# Nr 11: 226,59
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`First ID`[11]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`Second ID`[11]))
+# Finn and Caroline - same study site (TP), almost same trap (really close to each other)
+# BUT different sex
+# Keep both for the moment
+```
+
+```{r}
+# Nr 14: 323,341
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`First ID`[14]))
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`Second ID`[14]))
+# Uwe and Alvin - same study site (TP), different parts of the park
+# we captured them several times on the same day in different areas of the park with just a few minutes between the handling
+# DEFINITELY different individuals
+# Keep both 
+```
+
+```{r}
+# Nr 16: 377,378
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`First ID`[16]))
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`Second ID`[16]))
+# Chani and Aurore - same study site (TP), different parts of the park
+# DEFINITELY DIFFERENT INDIVIDUALS (first capture on the same day, handling 30 min apart in different parts of the park)
+# Keep both
+```
+
+```{r}
+# Nr 17: 396,412
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`First ID`[17]))
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`Second ID`[17]))
+# Paul and Lola
+# different study sites (TP and Lilie)
+#  different sex
+# DEFINITELY DIFFERENT INDIVIDUALS
+# Keep both for the moment
+```
+
+```{r}
+# Nr 19: 430,61
+squirrels_raw %>% filter(protocol_nr == c(identical_11$`First ID`[19]))
+squirrels_raw %>% filter(protocol_nr_old == c(identical_11$`Second ID`[19]))
+# Doris and Ava - same study sites (Lilie), different traps but study site is small
+# BUT different sex
+# Keep both for the moment
+```
+
+# 15 Part 2
+0 matching genotypes without fuzzy matching
+```{r}
+identical_15p2 <- identity15_p2 %>% 
+  filter(Status != "Excluded")
+```
+
+```{r}
+table(identical_15p2$`First ID`)
+table(identical_15p2$`Second ID`)
+# 4 IDs were used more than once
+```
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

@@ -1,0 +1,1255 @@
+---
+title: "Squirrel CMR: Exploration individual data" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+-   **Research question:**
+-   **Study area:**
+-   **Data:**
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+library("ggplot2")
+library("lubridate")
+library("tidyverse")
+```
+
+## Plot setup
+
+Set theme for ggplots
+
+```{r theme}
+theme_set(
+  theme(
+    legend.position = "none",
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.border = element_rect(colour = "black", fill = NA, linewidth = 2),
+    plot.margin = margin(6, 10, 4, 4),
+    axis.ticks = element_line(colour = "black", linewidth = 1.5),
+    axis.ticks.length = unit(0.2, "cm"),
+    title = element_text(size = 20), # axis family = "Zilla Slab", family = "Roboto", 
+    axis.text = element_text(size = rel(1.4)))) # axis ticks, family = "Roboto", 
+```
+
+Labeller for study sites
+
+```{r}
+# Remove the underscore in the name of the study site without changing the factor levels
+Study_site_names <- as_labeller(c("Rahnsdorf" = "woodland area", "Treptower_Park" = "urban park", "Lilienthal" = "cemetery"))
+
+Study_site_names_specific <- as_labeller(c("Rahnsdorf" = "Rahnsdorf", "Lilienthal" = "Lilienthal", "Treptow_north" = "Treptower Park north", "Treptow_south" = "Treptower Park south"))
+```
+
+```{r}
+site_cols <- c(
+  "Rahnsdorf" = "#1b9e77",
+  "Treptower_Park" = "#d95f02",
+  "Lilienthal" = "#7570b3"
+)
+```
+
+# Data
+
+```{r data}
+#squirrels_raw <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20250819.RDS"))
+
+squirrels <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_20251127.RDS"))
+squirrels <- squirrels %>% 
+  mutate(
+    Date = as.Date(Date, format = "%d.%m.%Y"),
+    #Sex = ifelse(Sex %in% c("", NA), "unknown", Sex),
+    #Sex = factor(Sex, levels = c("f", "m", "unknown")), 
+    Project_phase = as.factor(Project_phase)
+  )
+
+trapping_effort <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "trapping_effort_20251122.RDS"))
+trapping_effort <- trapping_effort %>%
+  mutate(
+    Duration_hours = as.numeric(Trapping_Duration, units = "hours")
+  )
+
+hum_act_means <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "human_activity_means_20251127.RDS"))
+```
+
+Basic information
+
+```{r}
+str(squirrels)
+```
+
+# Capturing events
+
+## CE per ID
+
+```{r}
+captures_per_individual <- squirrels %>%
+  count(Squirrel_ID, Study_site)
+
+ggplot(captures_per_individual, aes(n)) +
+  geom_histogram(binwidth = 1, boundary = 0) +
+  labs(x = "Number of captures per individual",
+       y = "Count of individuals",
+       title = "Capture frequency distribution")
+
+ggplot(captures_per_individual, aes(n, fill = Study_site)) +
+  geom_histogram(position = "dodge") +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  labs(x = "Study site", y = "captures per individual",
+       title = "Capture frequency per site") +
+  theme(legend.position = "right")
+
+# ggsave(filename = here::here("plots", "cmr", "Captures_ID_site.png"),
+#        height = 4, width = 6, units = "in",
+#        dpi=800)
+```
+
+```{r}
+mean(captures_per_individual$n)
+sd(captures_per_individual$n)
+```
+
+The most captured individuals are 1: 8041A5D Treptower_Park 19 - Scar 2: 806170D Treptower_Park 17 - Valentine 3: 804C8B8 Lilienthal 16 - Alio 4: 80618A8 Lilienthal 16 - Gandalf 5: 8041A02 Rahnsdorf 15 - Ratchet
+
+## CE study sites
+
+```{r}
+captures_site <- squirrels %>%
+  count(Study_site)
+captures_site
+```
+
+```{r}
+ggplot(captures_site, aes(Study_site, n, fill = Study_site)) +
+  geom_col() +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(x = "Study site", y = "Number of capturing events",
+       title = "") # Capturing events per site
+
+# ggsave(filename = here::here("plots", "cmr", "CE_study_sites.png"),
+#        height = 4, width = 5, units = "in",
+#        dpi=800)
+```
+
+### CE study sites + sex
+
+```{r}
+captures_site_sex <- squirrels %>%
+  group_by(Study_site, Sex) %>%
+  count()
+
+ggplot(captures_site_sex, aes(Study_site, n, fill = Sex)) +
+  geom_col() +
+  # scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+  #                              "Lilienthal" = "orange2", 
+  #                              "Rahnsdorf" = "palegreen4")) +
+  labs(x = "Study site", y = "Number of captures",
+       title = "Capture frequency per site")
+```
+
+## CE per project phase
+
+```{r}
+captures_phase <- squirrels %>%
+  count(Project_phase)
+
+ggplot(captures_phase, aes(Project_phase, n)) +
+  geom_point() +
+  scale_y_continuous(
+    limits = c(0, 110),
+    breaks = seq(0, 110, by = 25),
+    expand = c(.004, .001)) +
+  labs(x = "Project phase", y = "Number of capturing events",
+       title = "Capturing events per project phase")
+```
+
+number phases per ID
+
+```{r}
+phases_ID <- squirrels %>%
+  group_by(Squirrel_ID, Project_phase) %>%
+  count()
+
+phases_ID
+
+phases_ID2 <- phases_ID %>%
+  group_by(Squirrel_ID) %>%
+  count()
+
+phases_ID2
+```
+
+```{r}
+mean(phases_ID2$n)
+sd(phases_ID2$n)
+summary(phases_ID2$n)
+```
+
+## CE per season year
+
+```{r}
+captures_season_year <- squirrels %>%
+  count(Project_phase, season_year, sort = F)
+captures_season_year$season_year <- fct_reorder(.f = captures_season_year$season_year, as.numeric(captures_season_year$Project_phase))
+
+ggplot(captures_season_year, aes(season_year, n)) +
+  geom_point() +
+  scale_y_continuous(
+    limits = c(0, 110),
+    breaks = seq(0, 110, by = 25),
+    expand = c(.004, .001)) +
+  labs(x = "season_year", y = "Number of capturing events",
+       title = "Capturing events per year and season")
+```
+
+## CE and temperature
+
+```{r}
+ggplot(squirrels, aes(x = Temperature_Celsius)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "grey70") +
+  scale_x_continuous(
+    limits = c(-1, 30),
+    breaks = seq(0, 30, by = 10),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 50),
+    breaks = seq(0, 50, by = 25),
+    expand = c(.004, .001)) +
+  labs(x = "Temperature (°C)", y = "Number of capturing events",
+       title = "Capture frequency across temperatures")
+
+ggplot(squirrels, aes(x = Temperature_Celsius, fill = Study_site)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(
+    limits = c(-1, 30),
+    breaks = seq(0, 30, by = 10),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 30),
+    breaks = seq(0, 30, by = 10),
+    expand = c(.004, .001)) +
+  facet_wrap(~ Study_site) +
+  labs(x = "Temperature (°C)", y = "Captures")
+```
+
+```{r}
+daily <- squirrels %>%
+  group_by(Date) %>%
+  summarise(
+    mean_temp = mean(Temperature_Celsius, na.rm = TRUE),
+    captures = n()
+  )
+
+ggplot(daily, aes(x = mean_temp, y = captures)) +
+  geom_point() +
+  geom_smooth(method = "loess") +
+  scale_x_continuous(
+    limits = c(0, 25),
+    breaks = seq(0, 25, by = 5),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 15),
+    breaks = seq(0, 15, by = 5),
+    expand = c(.004, .001)) +
+  labs(x = "Mean daily temperature (°C)",
+       y = "Number of captures",
+       title = "Daily capture frequency vs. temperature")
+```
+
+# Capture recapture
+
+## CR per project phase
+
+```{r}
+squirrels %>%
+  ggplot(aes(x = Project_phase, fill = Capture_or_recapture)) +
+  geom_bar(stat = "count", position = "dodge") +
+  scale_fill_manual(values = c("capture" = "grey28", "recapture" = "grey")) +
+  scale_y_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, by = 50),
+    expand = c(.004, .001)) +
+  labs(title = "Captures and recaptures at all locations by project phase",
+       x = "Project phase",
+       y = "Number of individuals",
+       fill = "Capture or recapture")
+```
+
+## CR per study site
+
+```{r}
+squirrels %>%
+  ggplot(aes(x = Study_site, fill = Study_site)) +
+  geom_bar(stat = "count", position = "stack", color = "white") +
+   scale_y_continuous(
+    limits = c(0, 200),
+    breaks = seq(0, 200, by = 50),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  labs(title = "",
+       x = "Study sites",
+       y = "Number of individuals",
+       fill = "Study site") +
+  facet_wrap(~Capture_or_recapture) 
+
+# ggsave(filename = here::here("plots", "cmr", "CR_study_sites.png"), 
+#        height = 4, width = 5, units = "in",
+#        dpi=800)
+```
+
+## CR per study site + sex
+
+```{r}
+captures <- squirrels %>%
+  filter(Capture_or_recapture == "capture")
+```
+
+```{r}
+table(captures$Sex, useNA = "always")
+table(captures$Study_site, useNA = "always")
+table(captures$Sex, captures$Study_site, useNA = "always")
+```
+
+```{r}
+recaptures <- squirrels %>%
+  filter(Capture_or_recapture == "recapture") %>%
+  group_by(Squirrel_ID, Study_site) %>%
+  count()
+
+recaptures
+```
+
+```{r}
+table(recaptures$Study_site, useNA = "always")
+
+# recapture rates
+93/141 # 0.6595745
+43/67 # 0.641791
+35/53 # 0.6603774
+15/21 # 0.7142857
+```
+
+## CR per study site and project phase
+
+```{r}
+## differentiation between study sites
+squirrels %>%
+  ggplot(aes(x = Project_phase, fill = Study_site)) +
+  geom_bar(stat = "count", position = "stack", color = "white") +
+  scale_y_continuous(
+    limits = c(0, 50),
+    breaks = seq(0, 50, by = 25),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  labs(title = "Captures and recaptures per study site in each project phase",
+       x = "Project phase",
+       y = "Number of individuals",
+       fill = "Study site") +
+  facet_wrap(~Study_site, labeller = labeller(facet = Study_site_names))   # Create facets for each study site
+```
+
+## Recapture rate year
+
+```{r}
+recapture_rate_year <- squirrels %>%
+  count(Year, Capture_or_recapture) %>%
+  tidyr::pivot_wider(names_from = Capture_or_recapture,
+                     values_from = n,
+                     values_fill = 0) %>%
+  mutate(recapture_rate = recapture / (capture + recapture))
+
+ggplot(recapture_rate_year, aes(x = Year, y = recapture_rate)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0,1)) +
+  labs(y = "Recapture rate", title = "Observed Recapture Rate per Year")
+```
+
+## Recapture rate study sites proj phase
+
+```{r}
+recapture_rate_site <- squirrels %>%
+  count(Project_phase, Study_site, Capture_or_recapture) %>%
+  tidyr::pivot_wider(names_from = Capture_or_recapture,
+                     values_from = n,
+                     values_fill = 0) %>%
+  mutate(recapture_rate = recapture / (capture + recapture))
+
+ggplot(recapture_rate_site, aes(Project_phase, recapture_rate)) +
+  geom_col() +
+  scale_y_continuous(labels = scales::percent_format(), limits = c(0,1)) +
+  labs(y = "Recapture rate",
+       title = "Observed Recapture Rate per Study Site") + 
+  facet_wrap(~Study_site, nrow = 3)
+```
+
+## Capture history rasterplot
+
+```{r}
+capture_history <- squirrels %>%
+  arrange(Squirrel_ID, Project_phase, Study_site) %>%
+  mutate(capture = 1) %>%
+  select(Squirrel_ID, Study_site, Project_phase, capture)
+
+ggplot(capture_history, aes(Project_phase, Squirrel_ID)) +
+  geom_tile(aes(fill = capture)) +
+  scale_fill_gradient(low = "white", high = "black", guide = "none") +
+  labs(x = "Project_phase", y = "Individual ID",
+       title = "Capture history (presence/absence)")
+
+ggplot(capture_history, aes(Project_phase, Squirrel_ID)) +
+  geom_tile(aes(fill = capture)) +
+  scale_fill_gradient(low = "white", high = "black", guide = "none") +
+  labs(x = "Project_phase", y = "Individual ID",
+       title = "Capture history (presence/absence)") +
+  facet_wrap(~ Study_site, scales = "free_y", nrow = 3) 
+```
+
+## Captures per study site
+
+```{r}
+ggplot(data = captures, mapping = aes(x = Study_site, fill = Study_site)) +
+  geom_bar(stat = "count", position = "stack", color = "white") +
+   scale_y_continuous(
+    limits = c(0, 80),
+    breaks = seq(0, 80, by = 40),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(title = "",
+       x = "Study sites",
+       y = "Number of individuals",
+       fill = "Study site") 
+
+# ggsave(filename = here::here("plots", "cmr", "Caps_study_sites.png"),
+#        height = 4, width = 5, units = "in",
+#        dpi=800)
+```
+
+
+```{r}
+ggplot(data = captures, mapping = aes(x = Study_site, fill = Study_site)) +
+  geom_bar(stat = "count", position = "stack", color = "white") +
+   scale_y_continuous(
+    limits = c(0, 40),
+    breaks = seq(0, 40, by = 20),
+    expand = c(.004, .001)) +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(title = "",
+       x = "Study sites",
+       y = "Number of individuals",
+       fill = "Study site") + 
+  facet_wrap(~Sex, nrow = 3)
+
+# ggsave(filename = here::here("plots", "cmr", "Caps_study_sites_sex.png"),
+#        height = 4, width = 5, units = "in",
+#        dpi=800)
+```
+
+# Sex
+
+## Sex ratio study sites
+
+```{r}
+sex_site <- squirrels %>%
+  count(Study_site, Sex)
+
+ggplot(sex_site, aes(Study_site, n, fill = Sex)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(y = "Proportion",
+       x = "Study site",
+       title = "") + #Sex ratio per study site
+  theme(legend.position = "right")
+
+# ggsave(filename = here::here("plots", "cmr", "Sex_ratio_site.png"),
+#        height = 4, width = 6, units = "in",
+#        dpi=800)
+```
+
+## Sex ratio study site, phase
+
+```{r}
+sex_phase_site <- squirrels %>%
+  count(Project_phase, Study_site, Sex)
+
+ggplot(sex_phase_site, aes(Project_phase, n, fill = Sex)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  labs(y = "Proportion",
+       title = "Sex ratio per project phase per study site") + 
+  facet_wrap(~Study_site, nrow = 3) + 
+  theme(legend.position = "top")
+```
+
+# Body condition
+
+## Weight
+
+```{r}
+ggplot(squirrels, aes(Study_site, Weight_squirrel)) +
+  geom_boxplot() +
+  labs(x = "Study site", y = "Weight (g)",
+       title = "Body weight distribution per study site")
+
+ggplot(squirrels, aes(Project_phase, Weight_squirrel)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Project phase", y = "Weight (g)",
+       title = "Body weight per project phase")
+
+ggplot(squirrels, aes(Sex, Weight_squirrel)) +
+  geom_boxplot() +
+  labs(x = "Sex", y = "Weight (g)",
+       title = "Body weight distribution per sex and study site") +
+  facet_wrap(~Study_site, nrow = 3)
+```
+
+### Weight change of squirrels per project phase
+
+Calculate the mean weight per project phase
+
+```{r}
+weight_phase <- squirrels %>%
+  group_by(Study_site, Project_phase, Squirrel_ID) %>%
+  summarize(
+    mean_weight = mean(Weight_squirrel, na.rm = TRUE),
+    sd_weight = sd(Weight_squirrel, na.rm = TRUE),
+    n = n()
+  ) 
+
+weight_year <- squirrels %>%
+  group_by(Squirrel_ID, Year) %>%
+  summarise(mean_weight = mean(Weight_squirrel, na.rm = TRUE)) %>%
+  ungroup()
+
+diff_weight <- weight_phase %>%
+  group_by(Squirrel_ID) %>%
+  mutate(diff_weight = mean_weight - lag(mean_weight, default = mean_weight[1]))
+```
+
+```{r}
+ggplot(data = squirrels, aes(x = Project_phase, y = Weight_squirrel, colour = Study_site, group = Squirrel_ID)) + 
+  geom_line() + 
+  geom_point() +
+  facet_wrap(~Study_site)
+
+# Mean weight per phase
+ggplot(data = weight_phase, aes(x = Project_phase, y = mean_weight, color = Study_site, group = Squirrel_ID)) +
+  geom_point(size = 3) +
+  geom_line() +
+  # geom_errorbar(aes(
+  #   ymin = mean_weight - sd_weight,
+  #   ymax = mean_weight + sd_weight
+  # ), width = 0.2) +
+  facet_wrap(~Study_site) +
+  labs(
+    x = "Project phase",
+    y = "Mean weight (g)",
+    color = "Study site"#,
+    #title = "Mean squirrel weight per project phase"
+  )
+```
+
+```{r}
+ggplot(data = diff_weight, aes(x = Project_phase, y = diff_weight, colour = Squirrel_ID, group = Squirrel_ID)) + 
+  geom_line() + 
+  geom_point() +
+  facet_wrap(~Study_site)
+```
+
+## Body length
+
+```{r}
+ggplot(squirrels, aes(Study_site, body_length_mm)) +
+  geom_boxplot() +
+  labs(x = "Study site", y = "Weight (g)",
+       title = "Body weight distribution per study site")
+
+ggplot(squirrels, aes(Project_phase, body_length_mm)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Season-Year", y = "Weight (g)",
+       title = "Body weight per Season-Year")
+
+ggplot(squirrels, aes(Sex, body_length_mm)) +
+  geom_boxplot() +
+  labs(x = "Study site", y = "Weight (g)",
+       title = "Body weight distribution per study site") +
+  facet_wrap(~Study_site, nrow = 3)
+```
+
+## Weight and body length
+
+```{r}
+ggplot(squirrels, aes(body_length_mm, Weight_squirrel,
+                      color = Study_site)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_colour_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4"),
+                      labels = Study_site_names) +
+  labs(x = "Body length (mm)", y = "Weight (g)", colour = "Study site", 
+       title = "") + # Relationship between body length and weight
+  theme(legend.position = "right")
+
+# ggsave(filename = here::here("plots", "cmr", "weight_length.png"),
+#        height = 4, width = 6, units = "in",
+#        dpi=800)
+```
+
+
+```{r}
+ggplot(squirrels, aes(body_length_mm, Weight_squirrel,
+                      color = Study_site)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Body length (mm)", y = "Weight (g)",
+       title = "Relationship between body length and weight") + 
+  theme(legend.position = "top") +
+  facet_wrap(~Study_site)
+```
+
+# Samples
+
+```{r}
+genetics_site <- squirrels %>%
+  count(tissue_sample, Study_site) %>%
+  filter(tissue_sample == "yes")
+```
+
+
+```{r}
+ggplot(genetics_site, aes(x = Study_site, y = n, fill = Study_site)) +
+  geom_col() +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(x = "Study site", y = "Number of tissue samples",
+       title = "") #Tissue samples per site
+
+ggsave(filename = here::here("plots", "cmr", "Tissue_study_sites.png"),
+       height = 4, width = 5, units = "in",
+       dpi=800)
+```
+
+## Summary table
+
+```{r}
+table(squirrels$Sex, useNA = "always")
+```
+
+Helper function to count individuals per sex (f, m , NA)
+
+```{r}
+count_sex <- function(df) {
+  df %>%
+    mutate(Sex = as.character(Sex),
+           Sex = ifelse(is.na(Sex) | Sex == "", "unknown", Sex)) %>%
+    count(Sex) %>%
+    pivot_wider(names_from = Sex, values_from = n, values_fill = 0)
+}
+```
+
+Test if the function works
+
+```{r}
+count_sex(df = squirrels)
+```
+
+```{r}
+# 1) Unique captured individuals per phase × site × sex
+captured_ind <- squirrels %>%
+  distinct(Project_phase, Study_site, Squirrel_ID, Sex) %>%
+  group_by(Project_phase, Study_site) %>%
+  group_modify(~ count_sex(.x)) %>%
+  ungroup() %>%
+  rename_with(~ paste0("captured_", .x), c("f", "m", "unknown"))
+
+# 2) Unique recaptured individuals (≥ 2 captures)
+recaptured_ind <- squirrels %>%
+  count(Squirrel_ID) %>%
+  filter(n >= 2) %>%
+  select(Squirrel_ID) %>%
+  left_join(squirrels %>% select(Squirrel_ID, Sex, Project_phase, Study_site),
+            by = "Squirrel_ID") %>%
+  distinct() %>%
+  group_by(Project_phase, Study_site) %>%
+  group_modify(~ count_sex(.x)) %>%
+  ungroup() %>%
+  rename_with(~ paste0("recaptured_", .x), c("f", "m"))
+
+# 3) Capture events (all rows)
+capture_events <- squirrels %>%
+  group_by(Project_phase, Study_site) %>%
+  group_modify(~ count_sex(.x)) %>%
+  ungroup() %>%
+  rename_with(~ paste0("events_", .x), c("f", "m", "unknown"))
+
+# 4) Tissue samples (yes only)
+tissue_samples <- squirrels %>%
+  filter(tissue_sample == "yes") %>%
+  group_by(Project_phase, Study_site) %>%
+  group_modify(~ count_sex(.x)) %>%
+  ungroup() %>%
+  rename_with(~ paste0("tissue_", .x), c("f", "m", "unknown"))
+
+# --- Combine everything ---
+summary_table <- captured_ind %>%
+  full_join(recaptured_ind,
+            by = c("Project_phase", "Study_site")) %>%
+  full_join(capture_events,
+            by = c("Project_phase", "Study_site")) %>%
+  full_join(tissue_samples,
+            by = c("Project_phase", "Study_site")) %>%
+  arrange(Project_phase, Study_site) %>%
+  replace(is.na(.), 0)
+
+# Add totals row
+totals <- summary_table %>%
+  summarise(across(where(is.numeric), sum)) %>%
+  mutate(Project_phase = "TOTAL",
+         Study_site = "TOTAL")
+
+final_table <- bind_rows(summary_table, totals)
+
+final_table
+```
+
+# Docility
+
+```{r}
+docility_squirrels <- squirrels %>%
+  group_by(Squirrel_ID) %>%
+  summarise(n = n(), mean_doc = mean(docility_score))
+
+ggplot(docility_squirrels, aes(mean_doc)) +
+  geom_histogram(binwidth = 0.5, boundary = 0) +
+  labs(x = "Docility",
+       y = "Frequency",
+       title = "Docility distribution")
+```
+
+```{r}
+table(docility_squirrels$mean_doc, useNA = "always")
+```
+
+# Nr traps per individual
+
+Into how many different traps did the squirrel go?
+
+## total
+
+```{r}
+p2_total <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Study_site) %>%
+  count(Study_site, Squirrel_ID) %>%
+  ggplot(aes(x = n, fill = Study_site)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(
+    limits = c(0, 8),
+    breaks = seq(1, 7, by = 2),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 45),
+    breaks = seq(0, 40, by = 20),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site) +
+  scale_fill_manual(values = site_cols) +
+  labs(x = "Number of traps visited", y = "Individuals")
+
+p2_total
+```
+
+## total per sex
+
+```{r}
+p2_sex <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Sex, Study_site) %>%
+  count(Study_site, Squirrel_ID, Sex) %>%
+  ggplot(aes(x = n, fill = Sex)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(
+    limits = c(0, 8),
+    breaks = seq(1, 7, by = 2),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 45),
+    breaks = seq(0, 40, by = 20),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site) +
+  scale_fill_manual(values = c("f"="#e7298a","m"="#1f78b4","unknown"="grey70")) +
+  labs(x = "Number of traps visited", y = "Individuals")
+
+p2_sex
+```
+
+## per project phase
+
+```{r}
+p2_phase <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Study_site, Project_phase) %>%
+  count(Project_phase, Study_site, Squirrel_ID) %>%
+  ggplot(aes(x = n, fill = Study_site)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(
+    limits = c(0, 5),
+    breaks = seq(1, 4, by = 1),
+    expand = c(.004, .001)) +
+  scale_y_continuous(
+    limits = c(0, 20),
+    breaks = seq(0, 20, by = 10),
+    expand = c(.004, .001)) +
+  facet_grid(Project_phase ~ Study_site) +
+  scale_fill_manual(values = site_cols) +
+  labs(x = "Number of traps visited", y = "Individuals")
+
+p2_phase
+```
+
+# CE per trap
+
+## total
+
+```{r}
+CE_trap <- squirrels %>%
+  count(Study_site, Trap_nr)
+```
+
+```{r}
+ ggplot(data = CE_trap, aes(x = Trap_nr, y = n, fill = Study_site)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 35),
+    breaks = seq(0, 30, by = 10),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site, scales = "free_x") +
+  scale_fill_manual(values = site_cols) +
+  labs(y = "Capturing events", x = "Trap") 
+```
+
+## total per sex
+
+```{r}
+CE_trap_sex <- squirrels %>%
+  count(Study_site, Trap_nr, Sex) 
+```
+
+```{r}
+ggplot(data = CE_trap_sex, aes(x = Trap_nr, y = n, fill = Sex)) +
+  geom_col(position = "stack") +
+  scale_y_continuous(
+    limits = c(0, 35),
+    breaks = seq(0, 30, by = 10),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site, scales = "free_x") +
+  scale_fill_manual(values = c("f" = "#e7298a","m" = "#1f78b4","unknown" = "grey60")) +
+  labs(y = "Capturing events", x = "Trap") 
+```
+
+## per project phase
+
+```{r}
+p1_phase <- squirrels %>%
+  count(Project_phase, Study_site, Trap_nr) %>%
+  ggplot(aes(x = Trap_nr, y = n, fill = Study_site)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 15),
+    breaks = seq(5, 15, by = 10),
+    expand = c(.004, .001)) +
+  facet_grid(Project_phase ~ Study_site, scales = "free_x") +
+  scale_fill_manual(values = site_cols) +
+  labs(y = "Capture events", x = "Trap") 
+
+p1_phase
+```
+
+# Nr individuals per trap
+
+How many individuals are there per trap
+
+## total
+
+```{r}
+p3_total <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Study_site) %>%
+  count(Study_site, Trap_nr) %>%
+  ggplot(aes(x = Trap_nr, y = n, fill = Study_site)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 15),
+    breaks = seq(0, 15, by = 5),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site, scales = "free_x") +
+  scale_fill_manual(values = site_cols) +
+  labs(y = "Unique individuals", x = "Trap") 
+
+p3_total
+```
+
+## total per sex
+
+```{r}
+p3_sex <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Sex, Study_site) %>%
+  count(Study_site, Trap_nr, Sex) %>%
+  ggplot(aes(x = Trap_nr, y = n, fill = Sex)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 15),
+    breaks = seq(0, 15, by = 5),
+    expand = c(.004, .001)) +
+  facet_wrap(~Study_site, scales = "free_x") +
+  scale_fill_manual(values = c("f"="#e7298a","m"="#1f78b4","unknown"="grey60")) +
+  labs(y = "Unique individuals", x = "Trap") 
+
+p3_sex
+```
+
+## per project phase
+
+```{r}
+p3_phase <- squirrels %>%
+  distinct(Squirrel_ID, Trap_nr, Study_site, Project_phase) %>%
+  count(Project_phase, Study_site, Trap_nr) %>%
+  ggplot(aes(x = Trap_nr, y = n, fill = Study_site)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 7),
+    breaks = seq(0, 6, by = 3),
+    expand = c(.004, .001)) +
+  facet_grid(Project_phase ~ Study_site, scales = "free_x") +
+  scale_fill_manual(values = site_cols) +
+  labs(y = "Unique individuals", x = "Trap") 
+
+p3_phase
+```
+
+# Trap nr x project phase
+
+```{r}
+p4_heatmap <- squirrels %>%
+  count(Study_site, Project_phase, Trap_nr) %>%
+  ggplot(aes(x = Trap_nr, y = factor(Project_phase), fill = n)) +
+  geom_tile(color = "white") +
+  facet_wrap(~Study_site, scales = "free_x") +
+  scale_fill_viridis_c(option = "magma") +
+  labs(x = "Trap", y = "Project phase", fill = "Captures") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+p4_heatmap
+```
+
+# Capture activity per trap per day
+
+## per day per study site
+
+```{r}
+p5_daily <- squirrels %>%
+  count(Study_site, Date) %>%
+  ggplot(aes(x = Date, y = n, color = Study_site)) +
+  geom_point() +
+  scale_color_manual(values = site_cols) +
+  facet_wrap(~Study_site) +
+  labs(y = "Captures per day", x = "Date")
+
+p5_daily
+```
+
+## per trap per day
+
+```{r}
+p5_daily_trap <- squirrels %>%
+  count(Study_site, Date, Trap_nr) %>%
+  ggplot(aes(x = Date, y = n, color = Study_site, group = Trap_nr)) +
+  geom_point() +
+  facet_wrap(~Study_site) +
+  scale_color_manual(values = site_cols) +
+  labs(y = "Captures per trap per day", x = "Date")
+
+p5_daily_trap
+```
+
+# Trapping effort
+
+```{r}
+str(trapping_effort)
+```
+
+```{r}
+table(trapping_effort$opened)
+table(trapping_effort$opened > 0, trapping_effort$Trapping_Duration)
+table(trapping_effort$opened > 0, trapping_effort$hours_day)
+```
+
+## Trap status over time
+
+```{r}
+ggplot(trapping_effort, aes(x = Project_phase, y = Trap_nr, fill = opened)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  facet_wrap(~ Study_site, scales = "free_y") +
+  labs(
+    title = "Trap status over time",
+    x = "Date",
+    y = "Trap number",
+    fill = "Opened"
+  ) 
+```
+
+## Hours activated per trap
+
+### total
+
+```{r}
+effort_hours <- trapping_effort %>%
+  group_by(Study_site, Trap_nr) %>%
+  summarise(total_hours = sum(hours_day, na.rm = TRUE)) %>%
+ggplot(aes(x = Trap_nr, y = total_hours)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 180),
+    breaks = seq(0, 180, by = 60),
+    expand = c(.004, .001)) +
+  facet_wrap(~ Study_site, scales = "free_x") +
+  labs(
+    title = "Total hours of trap activity per trap",
+    x = "Trap number",
+    y = "Total hours open"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+effort_hours
+```
+
+Heatmap per trap
+
+```{r}
+ggplot(trapping_effort, aes(x = Project_phase, y = Trap_nr, fill = Trapping_Duration)) +
+  geom_tile() +
+  scale_fill_viridis_c() +
+  facet_wrap(~ Study_site, scales = "free_y") +
+  labs(
+    title = "Active trapping duration per trap and day",
+    x = "Date",
+    y = "Trap number",
+    fill = "Hours"
+  ) 
+```
+
+### per project phase
+
+```{r}
+effort_hours_phase <- trapping_effort %>%
+  group_by(Study_site, Project_phase, Trap_nr) %>%
+  summarise(total_hours = sum(hours_day, na.rm = TRUE)) %>%
+ggplot(aes(x = Trap_nr, y = total_hours)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 40),
+    breaks = seq(10, 40, by = 30),
+    expand = c(.004, .001)) +
+  facet_grid(Project_phase ~ Study_site, scales = "free_x") +
+  labs(
+    title = "Total hours of trap activity per trap",
+    x = "Trap number",
+    y = "Total hours open"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+effort_hours_phase
+```
+
+## Hours per day
+
+```{r}
+effort_day <- trapping_effort %>%
+  group_by(Study_site, Date) %>%
+  summarise(total_hours_day = sum(hours_day, na.rm = TRUE))
+
+ggplot(effort_day, aes(x = Date, y = total_hours_day)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ Study_site) +
+  labs(
+    title = "Total trapping hours per day",
+    x = "Date",
+    y = "Total hours"
+  ) 
+```
+
+## Open traps per day
+
+```{r}
+opened_day <- trapping_effort %>%
+  group_by(Study_site, Date) %>%
+  summarise(
+    traps_open = sum(opened == 1),
+    traps_total = n(),
+    #prop_open = traps_open / traps_total
+  )
+
+ggplot(opened_day, aes(x = Date, y = traps_open)) +
+  geom_line() +
+  geom_point() +
+  scale_y_continuous(
+    limits = c(0, 10.3),
+    breaks = seq(0, 10, by = 5),
+    expand = c(.004, .001)) +
+  facet_wrap(~ Study_site) +
+  labs(
+    title = "Proportion of traps open per day",
+    y = "Proportion open"
+  ) 
+```
+
+## Average daily hours per trap
+
+```{r}
+avg_hours <- trapping_effort %>%
+  group_by(Study_site, Trap_nr) %>%
+  summarise(avg_hours = mean(hours_day, na.rm = TRUE))
+
+ggplot(avg_hours, aes(x = Trap_nr, y = avg_hours)) +
+  geom_col() +
+  scale_y_continuous(
+    limits = c(0, 5),
+    breaks = seq(0, 5, by = 2.5),
+    expand = c(.004, .001)) +
+  facet_wrap(~ Study_site, scales = "free_x") +
+  labs(
+    title = "Average daily trapping hours per trap",
+    x = "Trap number",
+    y = "Average hours"
+  ) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = .5))
+```
+
+Variation per trap
+
+```{r}
+ggplot(trapping_effort, aes(x = Trap_nr, y = hours_day)) +
+  geom_boxplot() +
+  scale_y_continuous(
+    limits = c(-0.2, 7),
+    breaks = seq(0, 7, by = 3.5),
+    expand = c(.004, .001)) +
+  facet_wrap(~ Study_site, scales = "free_x") +
+  labs(
+    title = "Variation in trapping duration per trap",
+    x = "Trap number",
+    y = "Duration (hours)"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5))
+```
+
+# Human activity
+```{r}
+hum_act_means <- hum_act_means %>%
+  mutate(Study_site = factor(
+    Study_site,
+    levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")
+  ))
+
+Study_site_names <- c(
+  "Rahnsdorf" = "woodland area",
+  "Treptower_Park" = "urban park",
+  "Lilienthal" = "cemetery"
+)
+```
+
+
+```{r}
+ggplot(hum_act_means, aes(x = Study_site, y = mean_30, , fill = Study_site)) +
+  geom_bar(stat = "identity") +
+  scale_x_discrete(labels = Study_site_names) +
+  labs(
+    x = "Study site",
+    y = "Human activity index"
+  ) +
+  scale_fill_manual(values = c("Treptower_Park" = "tomato3", 
+                               "Lilienthal" = "orange2", 
+                               "Rahnsdorf" = "palegreen4")) 
+
+# ggsave(filename = here::here("plots", "cmr", "hum_act_20260209.png"),
+#        height = 4, width = 6, units = "in",
+#        dpi=800)
+```
+
+
+
+```{r}
+ggplot(data = hum_act_means, mapping = aes(x = study_site_specific, y = spec_mean_30, group = study_site_specific, colour = study_site_specific)) +
+  geom_point()
+```
+
+***
+
+<details>
+
+<summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>
