@@ -1,0 +1,395 @@
+---
+title: "Your Project: Data Preparation" ## name of your project and analysis step
+description: |
+    The aim of this study is...
+author:
+    ## author information; single arguemnts can be deleted if not needed
+    - name: "John Smith"
+      url: https://izw-berlin.de/en/john-smith-en.html  
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+      orcid_id: 0000-0000-0000-0000
+    - name: "Jane Doe"
+      url: https://janedoe.com
+      affiliation: Leibniz Institute for Zoo and Wildlife Research
+      affiliation_url: https://izw-berlin.de/en/
+    ## add more authors with the same intendation and styling if needed 
+    ## a new author always starts with a hyphen!
+date: "`r Sys.Date()`"
+output: 
+    distill::distill_article:
+        highlight: kate      ## styling of code
+        code_folding: false  ## if `true` you can expand and shrink code chunks
+        toc: true            ## if `true` adds a table of content
+        toc_depth: 2         ## level to be displayed in the table of content
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, 
+                      dev = "ragg_png", fig.width = 9, fig.height = 6, dpi = 600, retina = 1)
+Sys.setlocale("LC_TIME", "C")
+```
+
+* **Research question:**
+* **Study area:**
+* **Data:** 
+
+# Setup
+
+```{r packages}
+## for non-CRAN packages please keep install instruction
+## but commented so it is not run each time, e.g.
+# devtools::install_github("EcoDynIZW/template")
+
+## libraries used in this script
+## please add ALL LIBRARIES NEEDED HERE
+## please remove libraries from the list that are not needed anymore 
+## at a later stage
+d6::simple_load(c("tidyverse", 
+                  "royfrancis/pophelper"
+))
+library(pophelper)
+```
+
+# Data
+```{r data}
+# Read In the structure run files
+# structure_files <- list.files(path = here::here("data-raw/genetic-raw/K=4_run_100_q/structure-f"), full.names = T)
+structure_files_135ID <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE", 
+                                                      "Squirrel_135_ID_16L_20250816", 
+                                                      "10k_Burnin_100k_MCMC", "Results"), 
+                                    pattern = "_f",full.names = T)
+
+# structure_files_135ID_14L <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+#                                                           "Squirrel_135_ID_14L_20250816",
+#                                                           "10k_Burnin_100k_MCMC", "Results"),
+#                                         pattern = "_f",full.names = T)
+# 
+# structure_files_133ID <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+#                                                       "Squirrel_133_ID_16L_20250816",
+#                                                       "10k_Burnin_100k_MCMC", "Results"),
+#                                     pattern = "_f",full.names = T)
+# 
+# structure_files_133ID_14L <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+#                                                           "Squirrel_133_ID_14L_20250816",
+#                                                           "10k_Burnin_100k_MCMC", "Results"),
+#                                         pattern = "_f",full.names = T)
+# 
+# structure_files_132ID <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+#                                                       "Squirrel_132_ID_16L_20250816",
+#                                                       "10k_Burnin_100k_MCMC", "Results"),
+#                                     pattern = "_f",full.names = T)
+# 
+# structure_files_132ID_14L <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+#                                                           "Squirrel_132_ID_14L_20250816",
+#                                                           "10k_Burnin_100k_MCMC", "Results"),
+#                                         pattern = "_f",full.names = T)
+# # # OLD, not used anymore
+# # structure_files_93ID <- list.files(path = here::here("output", "data-proc", "genetic-proc", "structure_results",
+# #                                                       "Squirrel_93_ID_16L_20250823"),
+# #                                     pattern = "_f",full.names = T)
+
+structure_files_100ID <- list.files(path = here::here("output", "data-proc", "genetic-proc", "STRUCTURE",
+                                                      "Squirrel_100_ID_16L_20260210",
+                                                      "10k_Burnin_100k_MCMC", "Results"),
+                                    pattern = "_f",full.names = T)
+
+
+# STRUCTURE lists
+structure_list_135ID <- readQ(files = structure_files_135ID, readci = TRUE, indlabfromfile = T)
+# structure_list_135ID_14L <- readQ(files = structure_files_135ID_14L, readci = TRUE, indlabfromfile = T)
+# structure_list_133ID <- readQ(files = structure_files_133ID, readci = TRUE, indlabfromfile = T)
+# structure_list_133ID_14L <- readQ(files = structure_files_133ID_14L, readci = TRUE, indlabfromfile = T)
+# structure_list_132ID <- readQ(files = structure_files_132ID, readci = TRUE, indlabfromfile = T)
+# structure_list_132ID_14L <- readQ(files = structure_files_132ID_14L, readci = TRUE, indlabfromfile = T)
+# # OLD structure_list_93ID <- readQ(files = structure_files_93ID, readci = TRUE, indlabfromfile = T)
+structure_list_100ID <- readQ(files = structure_files_100ID, readci = TRUE, indlabfromfile = T)
+
+# Squirrel cmr data
+squirrels <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20251127.RDS"))
+```
+
+# STRUCTURE files
+```{r data check}
+# check class of output
+class(structure_list_135ID)
+
+# access names of runs
+names(structure_list_135ID)
+
+# view head of first converted file
+head(structure_list_135ID[[1]])
+head(structure_list_135ID[[10]])
+```
+
+Checkout the attributes of the files
+```{r attributes}
+# qlist attributes
+attributes(structure_list_135ID)
+
+# dataframe attributes
+attributes(structure_list_135ID[[1]])
+
+# check names of attributes of the first file
+names(attributes(structure_list_135ID[[1]]))
+
+# # get attributes of all runs
+# lapply(structure_list,attributes)
+```
+
+
+# Combine genetic data and cmr data
+Test for the identifier column
+```{r}
+# test <- 
+# structure_list_135ID[[1]] 
+# 
+# test2 <- 
+# structure_list_135ID[[1]] %>% 
+#   as.data.frame() 
+# 
+# test3<- 
+# structure_list_135ID[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") 
+# 
+# test4 <- 
+# structure_list_135ID[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old2 = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old2 = as.numeric(protocol_nr_old2))
+```
+
+Create a data frame containing the identifier (protocol_nr_old) for each sample. These are the original protocol numbers used during genetic analyses. Although we later identified inconsistencies in these numbers (e.g., duplicates or missing values), they did not affect the analyses. We have since corrected and renumbered them, but the original numbers remain as reference.
+```{r}
+genetic_IDs_135_IDs <- structure_list_135ID[[1]] %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = "protocol_nr_old") %>%
+  mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+         protocol_nr_old = as.numeric(protocol_nr_old))
+
+# genetic_IDs_135_IDs_14L <- structure_list_135ID_14L[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+# 
+# genetic_IDs_133_IDs <- structure_list_133ID[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+# 
+# genetic_IDs_133_IDs_14L <- structure_list_133ID_14L[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+# 
+# genetic_IDs_132_IDs <- structure_list_132ID[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+# 
+# genetic_IDs_132_IDs_14L <- structure_list_132ID_14L[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+# 
+# genetic_IDs_93_IDs <- structure_list_93ID[[1]] %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "protocol_nr_old") %>%
+#   mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+#          protocol_nr_old = as.numeric(protocol_nr_old))
+
+genetic_IDs_100_IDs <- structure_list_100ID[[1]] %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = "protocol_nr_old") %>%
+  mutate(protocol_nr_old = str_replace_all(protocol_nr_old, pattern = "\\*", replacement = ""), 
+         protocol_nr_old = as.numeric(protocol_nr_old))
+
+
+
+
+
+# squirrels2 <- squirrels %>%
+#   mutate(protocol_nr_old = case_when(protocol_nr < 288 ~ protocol_nr_old, 
+#                                      protocol_nr > 287 ~ protocol_nr))
+```
+
+Combine squirrel CMR data and genetic data
+```{r}
+### 135 IDs
+gen_squirrels_135_IDs <- left_join(x = genetic_IDs_135_IDs, y = squirrels, by = "protocol_nr_old")
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>% 
+  dplyr::select(protocol_nr_old, protocol_nr, 
+                Year, Season, season_year, Project_phase, 
+                Study_site, study_site_specific, area_type, 
+                Squirrel_ID, Name, Sex
+  ) %>%
+  mutate(Sex = as.character(Sex),
+         Sex = replace_na(Sex, "unknown"),
+         Year = as.character(Year)) %>%
+  droplevels()
+gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+
+# ### 135 IDs 14 Loci
+# gen_squirrels_135_IDs_14L <- left_join(x = genetic_IDs_135_IDs_14L, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_135_IDs_14L <- gen_squirrels_135_IDs_14L %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_135_IDs_14L <- gen_squirrels_135_IDs_14L %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+# 
+# ### 133 IDs
+# gen_squirrels_133_IDs <- left_join(x = genetic_IDs_133_IDs, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_133_IDs <- gen_squirrels_133_IDs %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_133_IDs <- gen_squirrels_133_IDs %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+# 
+# ### 133 IDs 14 Loci
+# gen_squirrels_133_IDs_14L <- left_join(x = genetic_IDs_133_IDs_14L, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_133_IDs_14L <- gen_squirrels_133_IDs_14L %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_133_IDs_14L <- gen_squirrels_133_IDs_14L %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+# 
+# ### 132 IDs
+# gen_squirrels_132_IDs <- left_join(x = genetic_IDs_132_IDs, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_132_IDs <- gen_squirrels_132_IDs %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_132_IDs <- gen_squirrels_132_IDs %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+# 
+# ### 132 IDs 14 Loci
+# gen_squirrels_132_IDs_14L <- left_join(x = genetic_IDs_132_IDs_14L, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_132_IDs_14L <- gen_squirrels_132_IDs_14L %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_132_IDs_14L <- gen_squirrels_132_IDs_14L %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+# 
+# ### 93 IDs
+# gen_squirrels_93_IDs <- left_join(x = genetic_IDs_93_IDs, y = squirrels, by = "protocol_nr_old")
+# gen_squirrels_93_IDs <- gen_squirrels_93_IDs %>% 
+#   dplyr::select(protocol_nr_old, protocol_nr, 
+#                 Year, Season, season_year, Project_phase, 
+#                 Study_site, study_site_specific, area_type, 
+#                 Squirrel_ID, Name, Sex
+#   ) %>%
+#   mutate(Sex = as.character(Sex),
+#          Sex = replace_na(Sex, "unknown"),
+#          Year = as.character(Year)) %>%
+#   droplevels()
+# gen_squirrels_93_IDs <- gen_squirrels_93_IDs %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+
+### 100 IDs
+gen_squirrels_100_IDs <- left_join(x = genetic_IDs_100_IDs, y = squirrels, by = "protocol_nr_old")
+gen_squirrels_100_IDs <- gen_squirrels_100_IDs %>% 
+  dplyr::select(protocol_nr_old, protocol_nr, 
+                Year, Season, season_year, Project_phase, 
+                Study_site, study_site_specific, area_type, 
+                Squirrel_ID, Name, Sex
+  ) %>%
+  mutate(Sex = as.character(Sex),
+         Sex = replace_na(Sex, "unknown"),
+         Year = as.character(Year)) %>%
+  droplevels()
+gen_squirrels_100_IDs <- gen_squirrels_100_IDs %>% remove_rownames() %>% column_to_rownames(var = "protocol_nr_old")
+
+```
+
+
+
+# Save data
+```{r}
+# STRUCTURE data
+# saveRDS(structure_list_135ID, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_135ID_20250819.RData"))
+# saveRDS(structure_list_135ID_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_135ID_14L_20250719.RData"))
+# saveRDS(structure_list_133ID, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_133ID_20250719.RData"))
+# saveRDS(structure_list_133ID_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_133ID_14L_20250719.RData"))
+# saveRDS(structure_list_132ID, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_132ID_20250719.RData"))
+# saveRDS(structure_list_132ID_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_132ID_14L_20250719.RData"))
+# saveRDS(structure_list_93ID, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_93ID_20250823.RData"))
+saveRDS(structure_list_100ID,
+        file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "structure_list_100ID_20260210.RData"))
+
+
+# Combination of genetic and cmr data
+# saveRDS(gen_squirrels_135_IDs, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_135_IDs_20250719.RDS"))
+# saveRDS(gen_squirrels_135_IDs_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_135_IDs_14L_620250719.RDS"))
+# saveRDS(gen_squirrels_133_IDs, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_133_IDs_20250719.RDS"))
+# saveRDS(gen_squirrels_133_IDs_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_133_IDs_14L_620250719.RDS"))
+# saveRDS(gen_squirrels_132_IDs, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_132_IDs_20250719.RDS"))
+# saveRDS(gen_squirrels_132_IDs_14L, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_132_IDs_14L_620250719.RDS"))
+# saveRDS(gen_squirrels_93_IDs, 
+#         file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_93_IDs_20250823.RDS"))
+saveRDS(gen_squirrels_100_IDs, 
+        file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  "gen_squirrels_100_IDs_20260210.RDS"))
+```
+
+
+***
+
+<details><summary>Session Info</summary>
+
+```{r sessionInfo}
+## DO NOT REMOVE!
+## We store the settings of your computer and the current versions of the
+## packages used to allow for reproducibility
+Sys.time()
+#git2r::repository() ## uncomment if you are using GitHub
+sessionInfo()
+```
+
+</details>

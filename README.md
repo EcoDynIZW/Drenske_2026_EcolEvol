@@ -35,7 +35,7 @@ DOI: TBA
 
 *05_genetics_population_differences*: We claculated metrics to analyse population differences like pairwise FST values
 
-*...*: XXX
+*06a_genetics_cluster_analysis_data_preparation*: Preparation of the Results of the STRUCTURE analysis for further anaylsis
 
 *06b_genetics_cluster_analysis_evanno_method_comparison*: We conducted the Cluster anaylsis with the Evanno method with the Results from STRUCTRE simulations.
 
