@@ -6,11 +6,11 @@ DOI: TBA
   
 ## Abstract
 
-1.	Urbanization influences ecological and evolutionary processes, including gene flow and survival. Understanding how genetic and demographic rates respond to urbanization is there-fore essential for wildlife viability in human-dominated landscapes. We tested whether pop-ulation genetic diversity, genetic structure, and apparent survival of Eurasian red squirrels (Sciurus vulgaris) vary in concert along an urbanization gradient.
-2.	We combined a multi-year capture–mark–recapture study with microsatellite-based popula-tion genetic analyses at three sites in Berlin, Germany, representing increasing levels of ur-banization. 
-3.	Genetic diversity was broadly comparable among sites, indicating no strong genetic erosion in urban populations. However, weak heterozygote deficits and subtle differences in indi-vidual heterozygosity suggest mild restrictions to gene flow along the urban gradient. Bayesi-an clustering analyses identified two genetic clusters, broadly corresponding to study sites, revealing emerging fine-scale population structure despite the small spatial extent of the study area.
-4.	Apparent survival did not differ clearly among sites. Several predictors received similar sup-port, highlighting substantial uncertainty in the drivers of survival in this system.  
-5.	By integrating genetic and demographic data, our study demonstrated that fine-scale genetic structuring can emerge in urban wildlife populations without translating into detectable short-term differences in apparent survival. These findings highlight that genetic and demographic responses to urbanization can be decoupled and emphasize the importance of integrated ap-proaches for understanding population survival in human-modified environments.
+1.	Urbanization influences ecological and evolutionary processes, including gene flow and survival. Understanding how genetic and demographic rates respond to urbanization is therefore essential for wildlife viability in human-dominated landscapes. We tested whether population genetic diversity, genetic structure, and apparent survival of Eurasian red squirrels (*Sciurus vulgaris*) vary in concert along an urbanization gradient.
+2.	We combined a multi-year capture–mark–recapture study with microsatellite-based population genetic analyses at three sites in Berlin, Germany, representing increasing levels of urbanization. 
+3.	Genetic diversity was broadly comparable among sites, indicating no strong genetic erosion in urban populations. However, weak heterozygote deficits and subtle differences in individual heterozygosity suggest mild restrictions to gene flow along the urban gradient. Bayesian clustering analyses identified two genetic clusters, broadly corresponding to study sites, revealing emerging fine-scale population structure despite the small spatial extent of the study area.
+4.	Apparent survival did not differ clearly among sites. Several predictors received similar support, highlighting substantial uncertainty in the drivers of survival in this system.  
+5.	By integrating genetic and demographic data, our study demonstrated that fine-scale genetic structuring can emerge in urban wildlife populations without translating into detectable short-term differences in apparent survival. These findings highlight that genetic and demographic responses to urbanization can be decoupled and emphasize the importance of integrated approaches for understanding population survival in human-modified environments.
 
 ## Description of the data and file structure
  
@@ -20,9 +20,9 @@ DOI: TBA
  - R: Contains all R scripts used for data processing, analysis, and figure generation.
 
 ## Data description
-Capture–mark–recapture data: Capture histories and associated metadata used for survival analyses.
-Genetic data: Microsatellite genotype data used for population genetic analyses + STRUCTURE results.
-Spatial data: Geographic data used to generate maps of the study area and sampling locations.
+- Capture-mark-recapture data: Capture histories and associated metadata used for survival analyses.
+- Genetic data: Microsatellite genotype data used for population genetic analyses + STRUCTURE results.
+- Spatial data: Geographic data used to generate maps of the study area and sampling locations.
 
 ## Description of the R files
 
