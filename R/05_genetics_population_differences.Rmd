@@ -1,20 +1,13 @@
 ---
-title: "Squirrel genetics: Population differences" ## name of your project and analysis step
+title: "Squirrel genetics and survival: Population differences" 
 description: |
-    The aim of this study is...
+    This script calculates population genetic parameters, including pairwise FST
+    and compares genetic differentiation among the three study sites.
 author:
-    ## author information; single arguemnts can be deleted if not needed
-    - name: "John Smith"
-      url: https://izw-berlin.de/en/john-smith-en.html  
-      affiliation: Leibniz Institute for Zoo and Wildlife Research
-      affiliation_url: https://izw-berlin.de/en/
-      orcid_id: 0000-0000-0000-0000
-    - name: "Jane Doe"
-      url: https://janedoe.com
-      affiliation: Leibniz Institute for Zoo and Wildlife Research
-      affiliation_url: https://izw-berlin.de/en/
-    ## add more authors with the same intendation and styling if needed 
-    ## a new author always starts with a hyphen!
+    - name: "Sinah Drenske"
+      affiliation: "Leibniz Institute for Zoo and Wildlife Research (IZW); Technische Universität Berlin"
+      affiliation_url: https://www.izw-berlin.de/en/
+      orcid_id: 0000-0002-2247-6507
 date: "`r Sys.Date()`"
 output: 
     distill::distill_article:
@@ -30,22 +23,23 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
 Sys.setlocale("LC_TIME", "C")
 ```
 
-* **Research question:**
-* **Study area:**
-* **Data:** 
+* **Research question:** Do Eurasasian red squirrel populations inhabiting sites with different levels of urbanisation in Berlin differ in genetic diversity, population structure, and connectivity?
+* **Study area:** Three study sites in Berlin, Germany, representing different levels of urbanisation: a woodland site in Rahnsdorf, Lilienthal Cemetery, and Treptower Park.
+  * Woodland = Rahnsdorf
+  * Cemetery = Lilienthal Cemetery
+  * Urban park = Treptower Park
+* **Data:** Microsatellite genotypes and study-site assignments of individual Eurasian red squirrels from the three study sites and genind object of the data.
 
 
 # Setup
 
 ```{r packages}
 ## for non-CRAN packages please keep install instruction
-## but commented so it is not run each time, e.g.
-# devtools::install_github("EcoDynIZW/template")
+# install.packages("devtools")
+# devtools::install_github("EcoDynIZW/d6")
+# For the package related: please follow the instructions here: https://github.com/timothyfrasier/related 
 
 ## libraries used in this script
-## please add ALL LIBRARIES NEEDED HERE
-## please remove libraries from the list that are not needed anymore 
-## at a later stage
 d6::simple_load(c("adegenet", 
                   "hierfstat",
                   "tidyverse", 
@@ -183,43 +177,6 @@ fit_summary <- data.frame(
   FIT = round(fit_pop, 3)
 )
 fit_summary
-```
-
-# Effective population size (Ne)
-Convert the genind object to a gtypes object
-```{r}
-# squirrel_genind_sites_miss <- missingno(pop = squirrel_genind_sites, type = "loci", cutoff = 0)
-# squirrel_gtypes_sites <- genind2gtypes(squirrel_genind_sites_miss)
-# class(squirrel_gtypes_sites)
-# 
-# squirrel_gtypes_sites
-# squirrel_genind_sites
-# squirrel_genind_sites_miss
-```
-
-```{r}
-#squirrel_gtypes_sites$
-```
-
-```{r}
-# # NOT WORKING
-# ne_ld <- strataG::ldNe(g = squirrel_gtypes_sites, 
-#                        maf.threshold = 0, 
-#                        by.strata = FALSE, 
-#                        ci = 0.95,
-#                        drop.missing = FALSE,
-#                        num.cores = 1)
-# ne_ld
-```
-
-```{r}
-# ne_ld2 <- strataG::ldNe(g = squirrel_gtypes_sites, 
-#                        maf.threshold = 0, 
-#                        by.strata = TRUE, 
-#                        ci = 0.95,
-#                        drop.missing = TRUE,
-#                        num.cores = 1)
-# ne_ld2
 ```
 
 

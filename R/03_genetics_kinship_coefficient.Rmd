@@ -1,20 +1,14 @@
 ---
-title: "Squirrel genetics: Kinship analysis" ## name of your project and analysis step
+title: "Squirrel genetics and survival: Kinship analysis" 
 description: |
-    The aim of this study is...
+    This script calculates pairwise genetic relatedness among individual red
+    squirrels using the Queller and Goodnight estimator and identifies closely
+    related individuals for exclusion from subsequent population structure analyses.
 author:
-    ## author information; single arguemnts can be deleted if not needed
-    - name: "John Smith"
-      url: https://izw-berlin.de/en/john-smith-en.html  
-      affiliation: Leibniz Institute for Zoo and Wildlife Research
-      affiliation_url: https://izw-berlin.de/en/
-      orcid_id: 0000-0000-0000-0000
-    - name: "Jane Doe"
-      url: https://janedoe.com
-      affiliation: Leibniz Institute for Zoo and Wildlife Research
-      affiliation_url: https://izw-berlin.de/en/
-    ## add more authors with the same intendation and styling if needed 
-    ## a new author always starts with a hyphen!
+    - name: "Sinah Drenske"
+      affiliation: "Leibniz Institute for Zoo and Wildlife Research (IZW); Technische Universität Berlin"
+      affiliation_url: https://www.izw-berlin.de/en/
+      orcid_id: 0000-0002-2247-6507
 date: "`r Sys.Date()`"
 output: 
     distill::distill_article:
@@ -30,22 +24,21 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE,
 Sys.setlocale("LC_TIME", "C")
 ```
 
-* **Research question:**
-* **Study area:**
-* **Data:** 
+* **Research question:** Do Eurasian red squirrel populations inhabiting sites with different levels of urbanisation in Berlin differ in genetic diversity, population structure, and connectivity?
+* **Study area:** Three study sites in Berlin, Germany, representing different levels of urbanisation: a woodland site in Rahnsdorf, Lilienthal Cemetery, and Treptower Park.
+  * Woodland = Rahnsdorf
+  * Cemetery = Lilienthal Cemetery
+  * Urban park = Treptower Park
+* **Data:** Microsatellite genotypes and study-site assignments of individual Eurasian red squirrels from the three study sites.
 
 
 # Setup
 
 ```{r packages}
 ## for non-CRAN packages please keep install instruction
-## but commented so it is not run each time, e.g.
-# devtools::install_github("EcoDynIZW/template")
+# For the package related: please follow the instructions here: https://github.com/timothyfrasier/related 
 
 ## libraries used in this script
-## please add ALL LIBRARIES NEEDED HERE
-## please remove libraries from the list that are not needed anymore 
-## at a later stage
 library("related")
 library("tidyverse")
 ```
