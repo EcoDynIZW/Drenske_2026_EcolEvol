@@ -79,7 +79,7 @@ site_cols <- c(
 # Data
 
 ```{r data}
-#squirrels_raw <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20250819.RDS"))
+#squirrels_raw <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_raw_20251127.RDS"))
 
 squirrels <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "squirrels_20251127.RDS"))
 squirrels <- squirrels %>% 
@@ -672,9 +672,9 @@ ggplot(genetics_site, aes(x = Study_site, y = n, fill = Study_site)) +
   labs(x = "Study site", y = "Number of tissue samples",
        title = "") #Tissue samples per site
 
-ggsave(filename = here::here("plots", "cmr", "Tissue_study_sites.png"),
-       height = 4, width = 5, units = "in",
-       dpi=800)
+# ggsave(filename = here::here("plots", "cmr", "Tissue_study_sites.png"),
+#        height = 4, width = 5, units = "in",
+#        dpi=800)
 ```
 
 ## Summary table

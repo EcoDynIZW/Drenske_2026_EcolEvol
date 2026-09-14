@@ -95,16 +95,10 @@ squirrel_genind <- read.genepop(file = here::here("data-raw", "genetic-raw",
                                 quiet = TRUE)
 
 
-# Genetic and CMR data
+# Genetic and CMR data - created in Script 6a
 gen_squirrels_135_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
                                                    "gen_squirrels_135_IDs_20250719.RDS"))
 gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>%
-  mutate(Study_site = factor(Study_site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
-
-gen_squirrels_93_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
-                                                   "gen_squirrels_93_IDs_20250823.RDS"))
-
-gen_squirrels_93_IDs <- gen_squirrels_93_IDs %>%
   mutate(Study_site = factor(Study_site, levels = c("Rahnsdorf", "Lilienthal", "Treptower_Park")))
 ```
 
@@ -242,7 +236,6 @@ gen_sum_pop
 ```{r}
 table(gen_squirrels_135_IDs$Study_site)
 table(gen_squirrels_135_IDs$Study_site, gen_squirrels_135_IDs$Sex)
-table(gen_squirrels_93_IDs$Study_site, gen_squirrels_93_IDs$Sex)
 # in total 135
 ```
 
@@ -271,27 +264,7 @@ ggplot(data = gen_squirrels_135_IDs, mapping = aes(x = Study_site, fill = Study_
 #        # height = 1200,
 #        # units = "px",
 #        dpi = 300)
-
-ggplot(data = gen_squirrels_93_IDs, mapping = aes(x = Study_site, fill = Study_site)) + 
-  geom_bar() +
-  scale_x_discrete(expand = c(0.001, 0.001), labels = Study_site_names) + 
-  scale_y_continuous(
-    limits = c(0, 75),
-    breaks = seq(0, 75, by = 25),
-    expand = c(.004, .001)) +
-  scale_fill_manual(values = c("Treptower_Park" = "#8B2F1D", 
-                               "Lilienthal" = "#F0A202", 
-                               "Rahnsdorf" = "#006D6F")) +
-  labs(x = "Study site", y = "Nr of individuals") 
-
-# ggsave(filename = here::here("plots","genetics", "samples_study_site_93IDS_20250906.png"),
-#        # width = 1650*1.25,
-#        # height = 1200,
-#        # units = "px",
-#        dpi = 300)
 ```
-
-
 
 
 # Number of alleles per locus (NA)

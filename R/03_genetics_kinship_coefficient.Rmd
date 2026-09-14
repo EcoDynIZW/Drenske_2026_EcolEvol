@@ -47,7 +47,7 @@ library("tidyverse")
 # Data
 
 ```{r data}
-# Genetic and CMR data
+# Genetic and CMR data - created in Script 6a
 gen_squirrels_135_IDs <- readRDS(file = here::here("output", "data-proc", "genetic-proc", "cluster_analysis",  
                                                    "gen_squirrels_135_IDs_20250719.RDS"))
 gen_squirrels_135_IDs <- gen_squirrels_135_IDs %>%
@@ -140,10 +140,10 @@ kinship_park <- readgenotypedata(genotype.data = here::here("output", "data-proc
 
 # kinship_site_squirrels <- readgenotypedata(genotype.data = here::here("output", "data-proc", "genetic-proc",
 #                                                                       "individual_genetics",
-#                                                                       "kinship_squirrels_study_site_20250819.txt"))
+#                                                                       "kinship_squirrels_study_site_20260210.txt"))
 
 # kinship_site_squirrels <- vroom::vroom(here::here("output", "data-proc", "genetic-proc", "individual_genetics",
-#                                                   "kinship_squirrels_study_site_20250819.txt"),
+#                                                   "kinship_squirrels_study_site_20260210.txt"),
 #                                        col_names = FALSE)
 ```
 
@@ -713,7 +713,7 @@ ids_remove_qg_cemetery
 ids_remove_qg_park
 
 2+12+21 # 35 IDs removed
-135-35 # 100 Tiere verbleiben
+135-35 # 100 squirrels remain
 ```
 
 
@@ -758,7 +758,7 @@ grouprel(genotypes = kinship_site_squirrels$gdata, estimatorname = "wang", usedg
 ```
 
 # Next steps
-Remove the 42 individuals from the raw data that, according to this analysis, show a high degree of relatedness to other animals.
+Remove the 35 individuals from the raw data that, according to this analysis, show a high degree of relatedness to other animals.
 
 This data set is used for analysis with STRUCTURE and all further analysis.
 

@@ -66,16 +66,10 @@ theme_set(
 
 # Data
 ```{r data}
-# ## To import tabular data (.csv, .txt, .xls etc.)
-# squirrel_ch <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "capture_histories_20250822.RDS"))
-
 # Capture histories
 capt_hist <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "capture_histories_20251128.RDS"))
 ## Only adults
 capt_hist_adu <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "capture_histories_adults_20251212.RDS"))
-
-# Nr recaptures
-# N_recaps_phase <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "N_recaps_phase_20251128.RDS"))
 
 # Season
 season_phase <- readRDS(file = here::here("output", "data-proc", "cmr-proc", "season_phase_20251128.RDS"))

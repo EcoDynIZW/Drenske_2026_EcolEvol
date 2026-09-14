@@ -235,13 +235,13 @@ plot.with.inset <-
 
 plot.with.inset
 
-# Save the plot
-ggsave(filename = here::here("plots", "maps",
-                             "Study_area_20250903.tiff"),
-         # width = 85,
-         # height = 85,
-         # units = "mm",
-       dpi = 300)
+# # Save the plot
+# ggsave(filename = here::here("plots", "maps",
+#                              "Study_area_20250903.tiff"),
+#          # width = 85,
+#          # height = 85,
+#          # units = "mm",
+#        dpi = 300)
 ```
 
 # Study sites
@@ -390,13 +390,13 @@ p_lilie <- ggplot() +
   )
 p_lilie
 
-# Save plot
-ggsave(filename = here::here("plots", "maps",
-                             "Lilie_20250814.tiff"),
-         # width = 85,
-         # height = 85,
-         # units = "mm",
-       dpi = 300)
+# # Save plot
+# ggsave(filename = here::here("plots", "maps",
+#                              "Lilie_20250814.tiff"),
+#          # width = 85,
+#          # height = 85,
+#          # units = "mm",
+#        dpi = 300)
 ```
 
 ## Rahnsdorf
@@ -454,13 +454,13 @@ p_rahn <- ggplot() +
   )
 p_rahn
 
-# Save plot
-ggsave(filename = here::here("plots", "maps",
-                             "Rahnsdorf_20250814.tiff"),
-         # width = 85,
-         # height = 85,
-         # units = "mm",
-       dpi = 300)
+# # Save plot
+# ggsave(filename = here::here("plots", "maps",
+#                              "Rahnsdorf_20250814.tiff"),
+#          # width = 85,
+#          # height = 85,
+#          # units = "mm",
+#        dpi = 300)
 ```
 
 
